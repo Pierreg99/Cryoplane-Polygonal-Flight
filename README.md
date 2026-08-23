@@ -1,4 +1,4 @@
-# CryoSys
+# CryoPlane
 
 Low-poly polar continent flyer. Mouse look, keyboard thrust, height-based terrain coloring, wireframe, day/night lighting, and a mini HUD for altitude and speed.
 
