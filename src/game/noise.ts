@@ -1,5 +1,5 @@
 import { createNoise2D } from "simplex-noise";
-import { SEED } from "./constants";
+import { MAPS, type MapId, type TerrainParams } from "./catalog";
 
 function mulberry32(seed: number) {
   return () => {
@@ -10,10 +10,20 @@ function mulberry32(seed: number) {
   };
 }
 
-const elevNoise = createNoise2D(mulberry32(SEED));
-const ridgeNoise = createNoise2D(mulberry32(SEED ^ 0x9e3779b9));
-const warpNoise = createNoise2D(mulberry32(SEED ^ 0x85ebca6b));
-const moistNoise = createNoise2D(mulberry32(SEED ^ 0xc2b2ae35));
+let params: TerrainParams = MAPS.pack.terrain;
+let elevNoise = createNoise2D(mulberry32(params.seed));
+let ridgeNoise = createNoise2D(mulberry32(params.seed ^ 0x9e3779b9));
+let warpNoise = createNoise2D(mulberry32(params.seed ^ 0x85ebca6b));
+let moistNoise = createNoise2D(mulberry32(params.seed ^ 0xc2b2ae35));
+
+export function configureNoise(mapId: MapId) {
+  params = MAPS[mapId].terrain;
+  const seed = params.seed;
+  elevNoise = createNoise2D(mulberry32(seed));
+  ridgeNoise = createNoise2D(mulberry32(seed ^ 0x9e3779b9));
+  warpNoise = createNoise2D(mulberry32(seed ^ 0x85ebca6b));
+  moistNoise = createNoise2D(mulberry32(seed ^ 0xc2b2ae35));
+}
 
 function fbm(
   noise: (x: number, y: number) => number,
@@ -48,23 +58,23 @@ export function moistureAt(x: number, z: number): number {
 export function heightAt(x: number, z: number): number {
   const worldR = 980 * 0.46;
   const r = Math.hypot(x, z) / worldR;
-  const island = smoothstep(1.08, 0.52, r);
+  const island = smoothstep(1.08, params.island, r);
   if (island <= 0.002) return 0.4;
 
-  const nx = x * 0.00255;
-  const nz = z * 0.00255;
-  const wx = nx + fbm(warpNoise, nx + 4.2, nz, 3) * 0.55;
-  const wz = nz + fbm(warpNoise, nx, nz + 9.1, 3) * 0.55;
+  const nx = x * params.freq;
+  const nz = z * params.freq;
+  const wx = nx + fbm(warpNoise, nx + 4.2, nz, 3) * params.warp;
+  const wz = nz + fbm(warpNoise, nx, nz + 9.1, 3) * params.warp;
 
   let h = 0;
-  h += (fbm(elevNoise, wx, wz, 5) * 0.5 + 0.5) * 34;
-  h += ridged(wx * 1.45, wz * 1.45) * 48;
-  h += fbm(elevNoise, wx * 3.4 + 2, wz * 3.4, 3) * 7;
+  h += (fbm(elevNoise, wx, wz, 5) * 0.5 + 0.5) * params.elev;
+  h += ridged(wx * 1.45, wz * 1.45) * params.ridge;
+  h += fbm(elevNoise, wx * 3.4 + 2, wz * 3.4, 3) * params.detail;
 
   const basin = fbm(elevNoise, wx * 0.62 + 18, wz * 0.62, 3) * 0.5 + 0.5;
-  if (basin < 0.34) h -= (0.34 - basin) * 52;
+  if (basin < params.basin) h -= (params.basin - basin) * params.basinDepth;
 
-  h = Math.pow(Math.max(h, 0) / 90, 1.12) * 90;
+  h = Math.pow(Math.max(h, 0) / 90, params.power) * 90;
   h *= island;
 
   if (r > 0.74) {

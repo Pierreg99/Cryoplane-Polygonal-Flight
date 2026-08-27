@@ -1,7 +1,10 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
-import { FOG_FAR, FOG_NEAR, SEA_LEVEL, WORLD } from "@/game/constants";
+import { CraftMesh } from "@/components/game/CraftMesh";
+import { MAPS, MODE_ORDER, MODES } from "@/game/catalog";
+import { combat, hostiles, shots, stepCombat, tryPlayerFire } from "@/game/combat";
+import { FOG_FAR, FOG_NEAR, WORLD } from "@/game/constants";
 import {
   applyLook,
   cameraFollow,
@@ -17,13 +20,18 @@ import {
   readActions,
   snapshotHeld,
 } from "@/game/input";
+import { mission, stepMission } from "@/game/mission";
 import { useGame } from "@/game/store";
 import {
   buildTerrainGeometry,
   findFlatPad,
   placeIcebergs,
   placeSpires,
+  placeVents,
+  RUNWAY,
+  runwayY,
 } from "@/game/terrain";
+import { stepTraffic, traffic } from "@/game/traffic";
 
 const daySky = new THREE.Color("#9eb4c4");
 const nightSky = new THREE.Color("#07090c");
@@ -39,6 +47,7 @@ const skyMix = new THREE.Color();
 const fogMix = new THREE.Color();
 
 export function World() {
+  const mapId = useGame((s) => s.mapId);
   return (
     <>
       <color attach="background" args={["#9eb4c4"]} />
@@ -46,11 +55,20 @@ export function World() {
       <Lights />
       <SkyDome />
       <Celestials />
-      <Terrain />
-      <Sea />
-      <Spires />
-      <Icebergs />
-      <Outpost />
+      <group key={mapId}>
+        <Terrain />
+        <Sea />
+        <Spires />
+        <Icebergs />
+        <Vents />
+        <Runway />
+        <Rings />
+        <Outpost />
+        <Parked />
+      </group>
+      <Traffic />
+      <Hostiles />
+      <Tracers />
       <Aurora />
       <StarField />
       <Snow />
@@ -69,10 +87,13 @@ function Lights() {
   const { scene } = useThree();
 
   useFrame((_, dt) => {
+    const map = MAPS[useGame.getState().mapId];
     const d = Math.min(dt, 0.1);
     const target = useGame.getState().night ? 1 : 0;
     mix.current += (target - mix.current) * (1 - Math.exp(-d * 1.7));
     const m = mix.current;
+    daySky.set(map.skyDay);
+    dayFog.set(map.fogDay);
     skyMix.copy(daySky).lerp(nightSky, m);
     fogMix.copy(dayFog).lerp(nightFog, m);
     scene.background = skyMix;
@@ -195,7 +216,8 @@ function Celestials() {
 }
 
 function Terrain() {
-  const geo = useMemo(() => buildTerrainGeometry(), []);
+  const mapId = useGame((s) => s.mapId);
+  const geo = useMemo(() => buildTerrainGeometry(mapId), [mapId]);
   const mat = useRef<THREE.MeshLambertMaterial>(null);
   const wireframe = useGame((s) => s.wireframe);
   const night = useGame((s) => s.night);
@@ -224,8 +246,10 @@ function Terrain() {
 
 function Sea() {
   const night = useGame((s) => s.night);
+  const mapId = useGame((s) => s.mapId);
+  const sea = MAPS[mapId].sea;
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, SEA_LEVEL, 0]}>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, sea, 0]}>
       <circleGeometry args={[WORLD * 0.7, 48]} />
       <meshLambertMaterial
         color={night ? "#1b3c48" : "#5e96a6"}
@@ -239,7 +263,8 @@ function Sea() {
 
 function Spires() {
   const mesh = useRef<THREE.InstancedMesh>(null);
-  const poses = useMemo(() => placeSpires(110), []);
+  const mapId = useGame((s) => s.mapId);
+  const poses = useMemo(() => placeSpires(MAPS[mapId].spires), [mapId]);
   const geo = useMemo(() => {
     const g = new THREE.ConeGeometry(0.55, 1, 5);
     g.translate(0, 0.5, 0);
@@ -282,7 +307,11 @@ function Spires() {
 
 function Icebergs() {
   const mesh = useRef<THREE.InstancedMesh>(null);
-  const poses = useMemo(() => placeIcebergs(72), []);
+  const mapId = useGame((s) => s.mapId);
+  const poses = useMemo(
+    () => placeIcebergs(MAPS[mapId].icebergs, MAPS[mapId].sea),
+    [mapId],
+  );
   const geo = useMemo(() => {
     const g = new THREE.ConeGeometry(0.7, 1.4, 5);
     g.translate(0, 0.45, 0);
@@ -443,6 +472,12 @@ function StarField() {
 }
 
 function Snow() {
+  const mapId = useGame((s) => s.mapId);
+  if (!MAPS[mapId].snow) return null;
+  return <SnowField />;
+}
+
+function SnowField() {
   const geo = useMemo(() => {
     const g = new THREE.BufferGeometry();
     const count = 360;
@@ -492,49 +527,21 @@ function Snow() {
 function Craft() {
   const group = useRef<THREE.Group>(null);
   const trail = useRef<THREE.Mesh>(null);
+  const planeId = useGame((s) => s.planeId);
 
   useFrame(() => {
     if (!group.current) return;
     craftMatrix(group.current);
     if (trail.current) {
       const mat = trail.current.material as THREE.MeshBasicMaterial;
-      mat.opacity = Math.min(0.72, flyer.speed / 70);
-      trail.current.scale.set(1, 0.6 + flyer.speed / 40, 1);
+      mat.opacity = Math.min(0.78, flyer.throttle * 0.55 + flyer.speed / 110);
+      trail.current.scale.set(1, 0.55 + flyer.throttle * 1.1, 1);
     }
   });
 
   return (
     <group ref={group}>
-      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, 0, 0.15]}>
-        <coneGeometry args={[0.32, 2.4, 6]} />
-        <meshLambertMaterial color="#e8eef2" flatShading />
-      </mesh>
-      <mesh position={[0, 0, -0.55]}>
-        <boxGeometry args={[0.48, 0.24, 1.2]} />
-        <meshLambertMaterial color="#9aa8b2" flatShading />
-      </mesh>
-      <mesh position={[0, -0.02, -0.05]}>
-        <boxGeometry args={[3.2, 0.07, 0.52]} />
-        <meshLambertMaterial color="#9ec4d4" flatShading />
-      </mesh>
-      <mesh position={[0, 0.32, -0.85]}>
-        <boxGeometry args={[0.07, 0.5, 0.36]} />
-        <meshLambertMaterial color="#c5d0d6" flatShading />
-      </mesh>
-      <mesh position={[0, 0.14, 0.35]}>
-        <boxGeometry args={[0.3, 0.16, 0.55]} />
-        <meshLambertMaterial color="#7a9aa8" flatShading />
-      </mesh>
-      <mesh ref={trail} position={[0, 0, -1.55]} rotation={[-Math.PI / 2, 0, 0]}>
-        <coneGeometry args={[0.14, 0.9, 5]} />
-        <meshBasicMaterial
-          color="#cfe4ec"
-          transparent
-          opacity={0}
-          blending={THREE.AdditiveBlending}
-          depthWrite={false}
-        />
-      </mesh>
+      <CraftMesh planeId={planeId} trailRef={trail} />
     </group>
   );
 }
@@ -557,20 +564,244 @@ function SimLoop() {
     const actions = readActions();
     if (actions.wireframe) state.toggleWireframe();
     if (actions.night) state.toggleNight();
+    if (actions.cycleMode) state.cycleMode();
+    if (actions.mode) state.setMode(MODE_ORDER[actions.mode - 1]!);
     if (active && actions.pause) {
       document.exitPointerLock?.();
       state.setPhase("paused");
     }
-    stepFlyer(dt, actions, active);
-    cameraFollow(camera, dt);
+    stepFlyer(dt, actions, active, state.planeId, state.flyMode, state.mapId);
+    if (active && flyer.crashed) {
+      document.exitPointerLock?.();
+      state.setPhase("crashed");
+    }
+    if (active && !flyer.crashed) {
+      tryPlayerFire(dt, actions.fire, state.flyMode);
+      stepMission(dt);
+      stepTraffic(dt);
+      stepCombat(dt, true, state.flyMode);
+    } else {
+      stepCombat(dt, false, state.flyMode);
+    }
+    cameraFollow(camera, dt, state.flyMode, state.planeId);
+    const map = MAPS[state.mapId];
     writeHud({
       altitude: flyer.agl,
       speed: flyer.speed,
       heading: (flyer.heading * 180) / Math.PI,
       scraping: flyer.scraping,
+      stall: flyer.stall,
+      throttle: flyer.throttle,
+      mode: MODES[state.flyMode].name,
+      wpDist: mission.wpDist,
+      rings: mission.scored,
+      landings: mission.landings,
+      landingScore: mission.lastLanding,
+      onRunway: mission.onRunway,
+      wind: Math.hypot(map.wind.x, map.wind.z),
+      hull: flyer.integrity,
+      kills: combat.kills,
+      crashed: flyer.crashed ? 1 : 0,
     });
     snapshotHeld();
   });
 
   return null;
 }
+
+function Vents() {
+  const mapId = useGame((s) => s.mapId);
+  const count = MAPS[mapId].vents;
+  const poses = useMemo(() => (count ? placeVents(count) : []), [mapId, count]);
+  const mesh = useRef<THREE.InstancedMesh>(null);
+  const geo = useMemo(() => {
+    const g = new THREE.CylinderGeometry(0.35, 0.7, 1.2, 6);
+    g.translate(0, 0.6, 0);
+    return g;
+  }, []);
+  useEffect(() => {
+    if (!mesh.current) return;
+    const m = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const p = new THREE.Vector3();
+    const s = new THREE.Vector3();
+    poses.forEach((pose, i) => {
+      p.set(pose.x, pose.y, pose.z);
+      q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), pose.ry);
+      s.set(pose.s, pose.s, pose.s);
+      m.compose(p, q, s);
+      mesh.current!.setMatrixAt(i, m);
+    });
+    if (mesh.current) mesh.current.instanceMatrix.needsUpdate = true;
+  }, [poses]);
+  useEffect(() => () => geo.dispose(), [geo]);
+  if (!count) return null;
+  return (
+    <instancedMesh ref={mesh} args={[geo, undefined, poses.length]}>
+      <meshLambertMaterial color="#6a5a4a" flatShading emissive="#3a2820" emissiveIntensity={0.45} />
+    </instancedMesh>
+  );
+}
+
+function Runway() {
+  const y = runwayY();
+  return (
+    <group position={[RUNWAY.x, y + 0.15, RUNWAY.z]}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[RUNWAY.width, RUNWAY.length]} />
+        <meshLambertMaterial color="#3d454c" flatShading />
+      </mesh>
+      <mesh position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <planeGeometry args={[0.35, RUNWAY.length * 0.9]} />
+        <meshLambertMaterial color="#d8e2e8" emissive="#c5d0d6" emissiveIntensity={0.2} />
+      </mesh>
+      {[-1, 1].map((side) =>
+        [-36, -18, 0, 18, 36].map((z) => (
+          <mesh key={`${side}-${z}`} position={[side * 4.6, 0.45, z]}>
+            <boxGeometry args={[0.22, 0.9, 0.22]} />
+            <meshLambertMaterial color="#9ec4d4" emissive="#9ec4d4" emissiveIntensity={0.35} />
+          </mesh>
+        )),
+      )}
+    </group>
+  );
+}
+
+function Rings() {
+  const group = useRef<THREE.Group>(null);
+  useFrame(() => {
+    const g = group.current;
+    if (!g) return;
+    g.children.forEach((child, i) => {
+      const ring = mission.rings[i];
+      if (!ring) return;
+      child.position.set(ring.x, ring.y, ring.z);
+      child.rotation.y += 0.01;
+      const mat = (child as THREE.Mesh).material as THREE.MeshBasicMaterial;
+      const active = i === mission.index;
+      mat.color.set(active ? "#9ec4d4" : ring.hit ? "#6b7680" : "#8b98a3");
+      mat.opacity = active ? 0.9 : 0.35;
+    });
+  });
+  const count = 6;
+  return (
+    <group ref={group}>
+      {Array.from({ length: count }, (_, i) => (
+        <mesh key={i} rotation={[Math.PI / 2, 0, 0]}>
+          <torusGeometry args={[7.2, 0.28, 6, 18]} />
+          <meshBasicMaterial
+            color="#9ec4d4"
+            transparent
+            opacity={0.4}
+            depthWrite={false}
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
+function Parked() {
+  const y = runwayY();
+  return (
+    <group>
+      <group position={[RUNWAY.x + 16, y + 3.2, RUNWAY.z + 28]} rotation={[0, 0.6, 0]}>
+        <CraftMesh planeId="hauler" />
+      </group>
+      <group position={[RUNWAY.x - 18, y + 2.4, RUNWAY.z + 22]} rotation={[0, -0.4, 0]}>
+        <CraftMesh planeId="glider" />
+      </group>
+    </group>
+  );
+}
+
+function Traffic() {
+  const refs = useRef<(THREE.Group | null)[]>([]);
+  useFrame(() => {
+    traffic.forEach((c, i) => {
+      const g = refs.current[i];
+      if (!g) return;
+      g.position.set(c.x, c.y, c.z);
+      g.rotation.set(c.pitch, c.yaw, c.bank, "YXZ");
+    });
+  });
+  return (
+    <group>
+      {traffic.map((c, i) => (
+        <group
+          key={c.id}
+          ref={(el) => {
+            refs.current[i] = el;
+          }}
+        >
+          <CraftMesh planeId={c.plane} />
+        </group>
+      ))}
+    </group>
+  );
+}
+
+function Hostiles() {
+  const refs = useRef<(THREE.Group | null)[]>([]);
+  useFrame(() => {
+    hostiles.forEach((h, i) => {
+      const g = refs.current[i];
+      if (!g) return;
+      g.visible = h.live;
+      if (!h.live) return;
+      g.position.set(h.x, h.y, h.z);
+      g.rotation.set(h.pitch, h.yaw, h.bank, "YXZ");
+    });
+  });
+  return (
+    <group>
+      {hostiles.map((h, i) => (
+        <group
+          key={h.id}
+          ref={(el) => {
+            refs.current[i] = el;
+          }}
+        >
+          <CraftMesh planeId={h.plane} />
+          <mesh position={[0, 0.55, 0.2]}>
+            <boxGeometry args={[0.18, 0.18, 0.18]} />
+            <meshBasicMaterial color="#c9867a" />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+function Tracers() {
+  const mesh = useRef<THREE.InstancedMesh>(null);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+  const playerCol = useMemo(() => new THREE.Color("#e8eef2"), []);
+  const enemyCol = useMemo(() => new THREE.Color("#c9867a"), []);
+  useFrame(() => {
+    const m = mesh.current;
+    if (!m) return;
+    shots.forEach((s, i) => {
+      if (!s.live) {
+        dummy.scale.set(0, 0, 0);
+        dummy.position.set(0, -20, 0);
+      } else {
+        dummy.scale.set(1, 1, 1);
+        dummy.position.set(s.x, s.y, s.z);
+        dummy.lookAt(s.x + s.vx, s.y + s.vy, s.z + s.vz);
+      }
+      dummy.updateMatrix();
+      m.setMatrixAt(i, dummy.matrix);
+      m.setColorAt(i, s.from === "player" ? playerCol : enemyCol);
+    });
+    m.instanceMatrix.needsUpdate = true;
+    if (m.instanceColor) m.instanceColor.needsUpdate = true;
+  });
+  return (
+    <instancedMesh ref={mesh} args={[undefined, undefined, shots.length]}>
+      <boxGeometry args={[0.07, 0.07, 2.2]} />
+      <meshBasicMaterial />
+    </instancedMesh>
+  );
+}
+

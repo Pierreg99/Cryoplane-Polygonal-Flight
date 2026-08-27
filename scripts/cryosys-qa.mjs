@@ -5,6 +5,8 @@ const url = process.argv[2] || "http://127.0.0.1:8080/";
 const outDir = "/workspace/screenshots";
 fs.mkdirSync(outDir, { recursive: true });
 
+const wrap = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+
 const browser = await chromium.launch({ args: ["--no-sandbox"] });
 const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
 const errors = [];
@@ -14,9 +16,8 @@ page.on("console", (msg) => {
 });
 
 await page.goto(url, { waitUntil: "networkidle" });
-await page.waitForTimeout(800);
-
 const fly = page.getByRole("button", { name: /click to fly|resume flight/i });
+await fly.waitFor({ timeout: 8000 });
 await fly.click();
 await page.waitForTimeout(1200);
 await page.screenshot({ path: `${outDir}/play.png` });
@@ -36,7 +37,7 @@ const afterThrust = await page.evaluate(() => {
   const t = window.__controlsTest;
   return { speed: t.getSpeed(), pos: t.getPosition(), yaw: t.getYaw() };
 });
-if (afterThrust.speed < 4) {
+if (afterThrust.speed < 8) {
   throw new Error(`thrust failed, speed=${afterThrust.speed}`);
 }
 
@@ -44,57 +45,50 @@ await page.evaluate(() => {
   const t = window.__controlsTest;
   t.reset();
   t.setYaw(0);
-  t.zeroVelocity();
   t.setKeys(["KeyW", "KeyA"]);
 });
-await page.waitForTimeout(200);
-const beforeA = await page.evaluate(() => window.__controlsTest.getPosition());
-await page.waitForTimeout(600);
-const afterA = await page.evaluate(() => ({
-  pos: window.__controlsTest.getPosition(),
-  bank: window.__controlsTest.getBank(),
+await page.waitForTimeout(150);
+const beforeA = await page.evaluate(() => ({
   yaw: window.__controlsTest.getYaw(),
+  x: window.__controlsTest.getPosition().x,
+}));
+await page.waitForTimeout(550);
+const afterA = await page.evaluate(() => ({
+  yaw: window.__controlsTest.getYaw(),
+  bank: window.__controlsTest.getBank(),
+  x: window.__controlsTest.getPosition().x,
 }));
 
 await page.evaluate(() => {
   const t = window.__controlsTest;
   t.reset();
   t.setYaw(0);
-  t.zeroVelocity();
   t.setKeys(["KeyW", "KeyD"]);
 });
-await page.waitForTimeout(200);
-const beforeD = await page.evaluate(() => window.__controlsTest.getPosition());
-await page.waitForTimeout(600);
-const afterD = await page.evaluate(() => ({
-  pos: window.__controlsTest.getPosition(),
-  bank: window.__controlsTest.getBank(),
+await page.waitForTimeout(150);
+const beforeD = await page.evaluate(() => ({
   yaw: window.__controlsTest.getYaw(),
+  x: window.__controlsTest.getPosition().x,
+}));
+await page.waitForTimeout(550);
+const afterD = await page.evaluate(() => ({
+  yaw: window.__controlsTest.getYaw(),
+  bank: window.__controlsTest.getBank(),
+  x: window.__controlsTest.getPosition().x,
 }));
 
 await page.evaluate(() => window.__controlsTest.clearKeys());
 await page.screenshot({ path: `${outDir}/play-after-controls.png` });
 
-await page.keyboard.press("KeyF");
-await page.waitForTimeout(400);
-await page.screenshot({ path: `${outDir}/wireframe.png` });
-
-await page.keyboard.press("KeyN");
-await page.waitForTimeout(900);
-await page.screenshot({ path: `${outDir}/night.png` });
-
-await page.keyboard.press("KeyF");
-await page.waitForTimeout(200);
-
-const dxA = afterA.pos.x - beforeA.x;
-const dxD = afterD.pos.x - beforeD.x;
+const dYawA = wrap(afterA.yaw - beforeA.yaw);
+const dYawD = wrap(afterD.yaw - beforeD.yaw);
 const result = {
   errors,
   probeReady,
   afterThrust,
-  left: { dx: dxA, bank: afterA.bank, yaw: afterA.yaw },
-  right: { dx: dxD, bank: afterD.bank, yaw: afterD.yaw },
-  pass: dxA < -1 && dxD > 1 && afterA.bank > 0.08 && afterD.bank < -0.08,
+  left: { dYaw: dYawA, bank: afterA.bank, dx: afterA.x - beforeA.x },
+  right: { dYaw: dYawD, bank: afterD.bank, dx: afterD.x - beforeD.x },
+  pass: dYawA > 0.05 && dYawD < -0.05 && afterA.bank > 0.08 && afterD.bank < -0.08,
 };
 
 console.log(JSON.stringify(result, null, 2));

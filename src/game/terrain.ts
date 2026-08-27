@@ -1,29 +1,43 @@
 import * as THREE from "three";
-import { BANDS, SEA_LEVEL, SEGS, WORLD } from "./constants";
+import { MAPS, type MapId } from "./catalog";
+import { SEGS, WORLD } from "./constants";
 import { heightAt, moistureAt, slopeAt } from "./noise";
 
-const cDeep = new THREE.Color(BANDS.deep);
-const cFjord = new THREE.Color(BANDS.fjord);
-const cIce = new THREE.Color(BANDS.ice);
-const cPack = new THREE.Color(BANDS.pack);
-const cSnow = new THREE.Color(BANDS.snow);
-const cAlpine = new THREE.Color(BANDS.alpine);
-const cPeak = new THREE.Color(BANDS.peak);
-const cRock = new THREE.Color(BANDS.rock);
-const cScree = new THREE.Color(BANDS.scree);
 const tmp = new THREE.Color();
+const cDeep = new THREE.Color();
+const cFjord = new THREE.Color();
+const cIce = new THREE.Color();
+const cPack = new THREE.Color();
+const cSnow = new THREE.Color();
+const cAlpine = new THREE.Color();
+const cPeak = new THREE.Color();
+const cRock = new THREE.Color();
+const cScree = new THREE.Color();
 
-function colorFor(h: number, slope: number, moist: number, out: THREE.Color) {
+function bindBands(mapId: MapId) {
+  const b = MAPS[mapId].bands;
+  cDeep.set(b.deep);
+  cFjord.set(b.fjord);
+  cIce.set(b.ice);
+  cPack.set(b.pack);
+  cSnow.set(b.snow);
+  cAlpine.set(b.alpine);
+  cPeak.set(b.peak);
+  cRock.set(b.rock);
+  cScree.set(b.scree);
+}
+
+function colorFor(h: number, slope: number, moist: number, sea: number, out: THREE.Color) {
   if (slope > 0.55) {
     out.copy(cRock).lerp(cScree, THREE.MathUtils.clamp((slope - 0.55) * 2.4, 0, 1));
     return;
   }
-  if (h < SEA_LEVEL + 0.4) {
+  if (h < sea + 0.4) {
     out.copy(cDeep);
     return;
   }
   if (h < 7) {
-    out.copy(cDeep).lerp(cFjord, (h - SEA_LEVEL) / 4.6);
+    out.copy(cDeep).lerp(cFjord, (h - sea) / 4.6);
     return;
   }
   if (h < 13) {
@@ -47,7 +61,9 @@ function colorFor(h: number, slope: number, moist: number, out: THREE.Color) {
   out.copy(cPeak);
 }
 
-export function buildTerrainGeometry(): THREE.BufferGeometry {
+export function buildTerrainGeometry(mapId: MapId): THREE.BufferGeometry {
+  bindBands(mapId);
+  const sea = MAPS[mapId].sea;
   const plane = new THREE.PlaneGeometry(WORLD, WORLD, SEGS, SEGS);
   plane.rotateX(-Math.PI / 2);
   const pos = plane.attributes.position;
@@ -79,7 +95,7 @@ export function buildTerrainGeometry(): THREE.BufferGeometry {
     const mx = (a.x + b.x + c.x) / 3;
     const mz = (a.z + b.z + c.z) / 3;
     const h = (a.y + b.y + c.y) / 3;
-    colorFor(h, slope, moistureAt(mx, mz), tmp);
+    colorFor(h, slope, moistureAt(mx, mz), sea, tmp);
     for (let j = 0; j < 3; j++) {
       const k = (i + j) * 3;
       colors[k] = tmp.r;
@@ -124,7 +140,7 @@ export function placeSpires(count = 110): PropPose[] {
   return out;
 }
 
-export function placeIcebergs(count = 72): PropPose[] {
+export function placeIcebergs(count = 72, sea = 2.4): PropPose[] {
   const out: PropPose[] = [];
   let guard = 0;
   while (out.length < count && guard < count * 50) {
@@ -134,16 +150,43 @@ export function placeIcebergs(count = 72): PropPose[] {
     const x = Math.cos(ang) * rad;
     const z = Math.sin(ang) * rad;
     const h = heightAt(x, z);
-    if (h > SEA_LEVEL + 1.2) continue;
+    if (h > sea + 1.2) continue;
     out.push({
       x,
-      y: SEA_LEVEL - 0.6,
+      y: sea - 0.6,
       z,
       s: 3.2 + hash(guard * 7) * 9,
       ry: hash(guard * 19) * Math.PI * 2,
     });
   }
   return out;
+}
+
+export function placeVents(count = 48): PropPose[] {
+  const out: PropPose[] = [];
+  let guard = 0;
+  while (out.length < count && guard < count * 40) {
+    guard += 1;
+    const x = (hash(guard * 23) - 0.5) * WORLD * 0.55;
+    const z = (hash(guard * 47) - 0.5) * WORLD * 0.55;
+    const h = heightAt(x, z);
+    const s = slopeAt(x, z);
+    if (h < 8 || h > 36 || s > 0.4) continue;
+    out.push({
+      x,
+      y: h,
+      z,
+      s: 1.4 + hash(guard) * 2.2,
+      ry: hash(guard * 5) * Math.PI * 2,
+    });
+  }
+  return out;
+}
+
+export const RUNWAY = { x: 28, z: 168, yaw: 0, length: 92, width: 10 };
+
+export function runwayY(): number {
+  return heightAt(RUNWAY.x, RUNWAY.z);
 }
 
 export function findFlatPad(
@@ -165,7 +208,7 @@ export function findFlatPad(
   return best;
 }
 
-function hash(n: number): number {
+export function hash(n: number): number {
   const s = Math.sin(n * 127.1 + 311.7) * 43758.5453;
   return s - Math.floor(s);
 }

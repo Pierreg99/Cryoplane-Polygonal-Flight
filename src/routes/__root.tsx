@@ -3,7 +3,7 @@ import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import appCss from "../styles.css?url";
 
-const APP_NAME = "CryoSys";
+const APP_NAME = "Cryoplane";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -11,7 +11,7 @@ export const Route = createRootRoute({
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: APP_NAME },
-      { name: "description", content: "Fly a low-poly polar continent with mouse look, thrust, wireframe, and day/night light." },
+      { name: "description", content: "Fly Cryoplane over a low-poly polar continent with mouse look, banked turns, wireframe, and day/night light." },
       { name: "theme-color", content: "#07090c" },
     ],
     links: [

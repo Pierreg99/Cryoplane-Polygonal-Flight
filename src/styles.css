@@ -64,6 +64,23 @@
   .mb-safe {
     margin-bottom: max(1rem, env(safe-area-inset-bottom));
   }
+
+  .boot-bar {
+    width: 8%;
+    animation: boot-load 1.4s var(--ease-out) forwards;
+  }
+}
+
+@keyframes boot-load {
+  0% {
+    width: 8%;
+  }
+  70% {
+    width: 72%;
+  }
+  100% {
+    width: 100%;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

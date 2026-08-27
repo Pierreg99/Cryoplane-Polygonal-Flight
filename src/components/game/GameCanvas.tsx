@@ -1,22 +1,40 @@
-import { lazy, Suspense, useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Overlay } from "@/components/game/Overlay";
 import { TouchControls } from "@/components/game/TouchControls";
+import { resetCombat } from "@/game/combat";
 import { installControlsTest } from "@/game/controlsTest";
 import { resetFlyer } from "@/game/flyer";
+import { resetMission } from "@/game/mission";
 import { hydratePrefs, useGame } from "@/game/store";
+import { rebuildTraffic } from "@/game/traffic";
 
-const FlightCanvas = lazy(() => import("@/components/game/FlightCanvas"));
+const flightMod = import("@/components/game/FlightCanvas");
+const FlightCanvas = lazy(() => flightMod);
 
 export function GameApp() {
-  const [ready, setReady] = useState(false);
+  const [client, setClient] = useState(false);
   const setPhase = useGame((s) => s.setPhase);
   const setPointerLocked = useGame((s) => s.setPointerLocked);
   const setLookHint = useGame((s) => s.setLookHint);
+  const opened = useRef(false);
+
+  const openHangar = () => {
+    if (opened.current) return;
+    opened.current = true;
+    if (useGame.getState().phase === "boot") setPhase("start");
+  };
 
   useEffect(() => {
     hydratePrefs();
     installControlsTest();
-    setReady(true);
+    const s = useGame.getState();
+    resetMission(s.mapId);
+    rebuildTraffic();
+    resetCombat();
+    resetFlyer(s.planeId, s.mapId);
+    setClient(true);
+
+    const failsafe = window.setTimeout(openHangar, 4500);
 
     const onLockChange = () => {
       const locked = Boolean(document.pointerLockElement);
@@ -26,14 +44,21 @@ export function GameApp() {
     document.addEventListener("pointerlockchange", onLockChange);
     document.addEventListener("pointerlockerror", onLockError);
     return () => {
+      window.clearTimeout(failsafe);
       document.removeEventListener("pointerlockchange", onLockChange);
       document.removeEventListener("pointerlockerror", onLockError);
     };
-  }, [setLookHint, setPointerLocked]);
+  }, [setLookHint, setPointerLocked, setPhase]);
 
-  const onPlay = () => {
-    if (useGame.getState().phase === "start") resetFlyer();
-    setPhase("play");
+  const sortie = () => {
+    const s = useGame.getState();
+    resetMission(s.mapId);
+    rebuildTraffic();
+    resetCombat();
+    resetFlyer(s.planeId, s.mapId);
+  };
+
+  const lockPointer = () => {
     const canvas = document.querySelector("canvas");
     if (canvas && canvas.requestPointerLock) {
       const attempt = canvas.requestPointerLock();
@@ -45,15 +70,30 @@ export function GameApp() {
     }
   };
 
+  const onPlay = () => {
+    const s = useGame.getState();
+    if (s.phase === "start" || s.phase === "boot" || s.phase === "crashed") {
+      sortie();
+    }
+    setPhase("play");
+    lockPointer();
+  };
+
+  const onRestart = () => {
+    sortie();
+    setPhase("play");
+    lockPointer();
+  };
+
   return (
     <main className="relative h-dvh w-full overflow-hidden bg-bg">
-      {ready ? (
-        <Suspense fallback={<div className="absolute inset-0 bg-bg" />}>
-          <FlightCanvas />
+      {client ? (
+        <Suspense fallback={null}>
+          <FlightCanvas onReady={openHangar} />
         </Suspense>
       ) : null}
-      <Overlay onPlay={onPlay} />
-      {ready ? <TouchControls /> : null}
+      <Overlay onPlay={onPlay} onRestart={onRestart} />
+      {client ? <TouchControls /> : null}
     </main>
   );
 }

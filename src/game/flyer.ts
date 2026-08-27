@@ -1,20 +1,17 @@
 import * as THREE from "three";
+import { MAPS, MODES, PLANES, type FlyMode, type MapId, type PlaneId } from "./catalog";
 import {
+  BANK_MAX,
   CLEARANCE,
-  DRAG,
-  FOLLOW_DIST,
   FOLLOW_HEIGHT,
-  LIFT,
   LOOK_SENS,
-  MAX_SPEED,
   PHYS_STEP,
   PITCH_LIMIT,
   SPAWN,
-  STRAFE,
-  THRUST,
 } from "./constants";
 import { heightAt } from "./noise";
 import type { Actions } from "./input";
+import { useGame } from "./store";
 
 export type FlyerState = {
   x: number;
@@ -26,11 +23,18 @@ export type FlyerState = {
   yaw: number;
   pitch: number;
   bank: number;
+  throttle: number;
+  airspeed: number;
   speed: number;
   agl: number;
   heading: number;
   scraping: number;
   trauma: number;
+  stall: number;
+  simTime: number;
+  integrity: number;
+  grace: number;
+  crashed: boolean;
 };
 
 export const flyer: FlyerState = {
@@ -41,39 +45,68 @@ export const flyer: FlyerState = {
   vy: 0,
   vz: 0,
   yaw: 0,
-  pitch: -0.12,
+  pitch: 0.04,
   bank: 0,
-  speed: 0,
+  throttle: 0.62,
+  airspeed: 46,
+  speed: 46,
   agl: 40,
   heading: 0,
   scraping: 0,
   trauma: 0,
+  stall: 0,
+  simTime: 0,
+  integrity: 1,
+  grace: 2.8,
+  crashed: false,
 };
 
 const forward = new THREE.Vector3();
 const right = new THREE.Vector3();
 const worldUp = new THREE.Vector3(0, 1, 0);
 const vel = new THREE.Vector3();
-const wish = new THREE.Vector3();
+const wishVel = new THREE.Vector3();
 const camDesired = new THREE.Vector3();
 const lookAt = new THREE.Vector3();
 
 let acc = 0;
+let prevYaw = 0;
+let camSnap = true;
+let activePlane: PlaneId = "dart";
+let activeMode: FlyMode = "cruise";
+let activeMap: MapId = "pack";
 
-export function resetFlyer() {
+function wrapPi(a: number) {
+  return Math.atan2(Math.sin(a), Math.cos(a));
+}
+
+export function resetFlyer(planeId: PlaneId = "dart", mapId: MapId = "pack") {
+  activePlane = planeId;
+  activeMap = mapId;
+  const plane = PLANES[planeId];
   flyer.x = SPAWN.x;
   flyer.z = SPAWN.z;
-  flyer.y = Math.max(SPAWN.y, heightAt(SPAWN.x, SPAWN.z) + 22);
-  flyer.vx = 0;
-  flyer.vy = 0;
-  flyer.vz = 0;
+  flyer.y = Math.max(SPAWN.y, heightAt(SPAWN.x, SPAWN.z) + 58);
   flyer.yaw = 0;
-  flyer.pitch = -0.12;
+  flyer.pitch = 0.06;
   flyer.bank = 0;
-  flyer.speed = 0;
+  flyer.throttle = 0.62;
+  flyer.airspeed = plane.cruise;
+  getForward(forward);
+  flyer.vx = forward.x * plane.cruise;
+  flyer.vy = forward.y * plane.cruise;
+  flyer.vz = forward.z * plane.cruise;
+  flyer.speed = plane.cruise;
   flyer.scraping = 0;
   flyer.trauma = 0;
+  flyer.stall = 0;
+  flyer.simTime = 0;
+  flyer.integrity = 1;
+  flyer.grace = 2.8;
+  flyer.crashed = false;
   acc = 0;
+  prevYaw = 0;
+  camSnap = true;
 }
 
 export function getForward(out = forward) {
@@ -104,43 +137,120 @@ function collideFloor() {
   const ground = heightAt(flyer.x, flyer.z);
   const floor = ground + CLEARANCE;
   flyer.agl = flyer.y - ground;
-  if (flyer.y < floor) {
-    flyer.y = floor;
-    if (flyer.vy < 0) flyer.vy *= -0.18;
-    flyer.vx *= 0.88;
-    flyer.vz *= 0.88;
-    flyer.scraping = 1;
-    flyer.trauma = Math.min(1, flyer.trauma + 0.28);
+  if (flyer.y >= floor) return;
+
+  const impact = Math.max(0, -flyer.vy) + flyer.airspeed * 0.1 * Math.max(0.15, -flyer.pitch + 0.2);
+  flyer.y = floor;
+
+  if (flyer.grace > 0 || flyer.crashed) {
+    if (flyer.vy < 0) flyer.vy = 0;
+    return;
+  }
+
+  const landing =
+    activeMode === "landing" &&
+    flyer.airspeed < 28 &&
+    flyer.pitch > -0.3 &&
+    impact < 20;
+
+  if (landing) {
+    flyer.vy = 0;
+    flyer.airspeed *= 0.9;
+    flyer.vx *= 0.9;
+    flyer.vz *= 0.9;
+    flyer.scraping = 0.22;
+    return;
+  }
+
+  const hard = impact > 16 || flyer.airspeed > 34;
+  if (flyer.vy < 0) flyer.vy = Math.abs(flyer.vy) * (hard ? 0.02 : 0.14);
+  flyer.airspeed *= hard ? 0.42 : 0.8;
+  flyer.vx *= hard ? 0.42 : 0.8;
+  flyer.vz *= hard ? 0.42 : 0.8;
+  flyer.scraping = hard ? 1 : 0.4;
+  flyer.trauma = Math.min(1, flyer.trauma + (hard ? 0.55 : 0.16));
+  if (flyer.pitch < -0.05) flyer.pitch += 0.1;
+
+  const armor = useGame.getState().armor;
+  const dmg = (hard ? 0.22 + impact * 0.014 : 0.05) / (1 + armor * 0.35);
+  flyer.integrity = Math.max(0, flyer.integrity - dmg);
+  if (flyer.integrity <= 0 || impact > 40) {
+    flyer.crashed = true;
+    flyer.integrity = 0;
+    flyer.airspeed = 0;
+    flyer.vx = 0;
+    flyer.vy = 0;
+    flyer.vz = 0;
+    flyer.throttle = 0;
   }
 }
 
 function integrate(dt: number, actions: Actions) {
-  getForward(forward);
-  getRight(right);
+  const plane = PLANES[activePlane];
+  const mode = MODES[activeMode];
+  const map = MAPS[activeMap];
+  const vtolHover = mode.id === "hover" && plane.vtol;
+  const engine = 1 + useGame.getState().engine * 0.12;
 
-  wish.set(0, 0, 0);
-  wish.addScaledVector(forward, actions.thrust * THRUST);
-  wish.addScaledVector(right, actions.strafe * STRAFE);
-  wish.y += actions.lift * LIFT;
+  if (actions.thrust > 0.05) {
+    flyer.throttle += 0.72 * actions.thrust * dt;
+  } else if (actions.thrust < -0.05) {
+    flyer.throttle += 0.95 * actions.thrust * dt;
+  }
+  if (flyer.throttle > 1) flyer.throttle = 1;
+  if (flyer.throttle < 0) flyer.throttle = 0;
 
-  flyer.vx += wish.x * dt;
-  flyer.vy += wish.y * dt;
-  flyer.vz += wish.z * dt;
+  flyer.pitch += actions.lift * plane.elevator * mode.lift * dt;
+  if (flyer.pitch > PITCH_LIMIT) flyer.pitch = PITCH_LIMIT;
+  if (flyer.pitch < -PITCH_LIMIT) flyer.pitch = -PITCH_LIMIT;
 
-  const damp = Math.exp(-DRAG * dt);
-  flyer.vx *= damp;
-  flyer.vy *= Math.exp(-(DRAG + 0.35) * dt);
-  flyer.vz *= damp;
+  const speedK = THREE.MathUtils.clamp(flyer.airspeed / 30, 0.18, 1.2);
+  flyer.yaw += -actions.strafe * plane.turn * mode.turn * speedK * dt;
 
-  vel.set(flyer.vx, flyer.vy, flyer.vz);
-  const spd = vel.length();
-  if (spd > MAX_SPEED) {
-    vel.multiplyScalar(MAX_SPEED / spd);
-    flyer.vx = vel.x;
-    flyer.vy = vel.y;
-    flyer.vz = vel.z;
+  const climb = Math.sin(flyer.pitch);
+  flyer.airspeed += flyer.throttle * plane.thrust * mode.thrust * engine * dt;
+  flyer.airspeed -= climb * plane.gravity * mode.gravity * dt;
+  const drag =
+    (0.16 + (1 - flyer.throttle) * 0.38 + Math.max(0, climb) * 0.22) * mode.drag;
+  flyer.airspeed *= Math.exp(-drag * dt);
+  if (flyer.airspeed > plane.maxSpeed) flyer.airspeed = plane.maxSpeed;
+  if (flyer.airspeed < 0) flyer.airspeed = 0;
+
+  const stallSpeed = plane.stall * mode.stall;
+  const stall = THREE.MathUtils.clamp(
+    stallSpeed <= 0.01 ? 0 : (stallSpeed - flyer.airspeed) / Math.max(stallSpeed, 0.01),
+    0,
+    1,
+  );
+  flyer.stall += (stall - flyer.stall) * (1 - Math.exp(-dt * 8));
+  if (stall > 0 && !vtolHover) {
+    flyer.pitch -= stall * 0.55 * dt;
+    flyer.vy -= stall * 26 * dt;
   }
 
+  if (vtolHover) {
+    flyer.vy += actions.lift * 28 * dt;
+    flyer.vy += (flyer.throttle - 0.42) * 18 * dt;
+    flyer.vy *= Math.exp(-1.6 * dt);
+  }
+
+  getForward(forward);
+  wishVel.copy(forward).multiplyScalar(flyer.airspeed);
+  const slip = 1 - Math.exp(-plane.slip * dt);
+  flyer.vx += (wishVel.x - flyer.vx) * slip;
+  flyer.vy += (wishVel.y - flyer.vy) * slip;
+  flyer.vz += (wishVel.z - flyer.vz) * slip;
+
+  const gust = Math.sin(flyer.simTime * 0.7) * map.wind.gust;
+  flyer.vx += (map.wind.x + gust) * dt * 0.35;
+  flyer.vz += (map.wind.z - gust * 0.4) * dt * 0.35;
+
+  if (flyer.agl < 12) {
+    const ge = (1 - flyer.agl / 12) * 10 * mode.lift * dt;
+    flyer.vy += ge;
+  }
+
+  vel.set(flyer.vx, flyer.vy, flyer.vz);
   const travel = vel.length() * dt;
   const steps = Math.max(1, Math.min(8, Math.ceil(travel / 2.4)));
   const sdt = dt / steps;
@@ -159,11 +269,13 @@ function integrate(dt: number, actions: Actions) {
     flyer.z *= k;
     flyer.vx *= 0.4;
     flyer.vz *= 0.4;
+    flyer.airspeed *= 0.7;
   }
 
-  if (flyer.y > 220) {
-    flyer.y = 220;
+  if (flyer.y > 240) {
+    flyer.y = 240;
     flyer.vy = Math.min(flyer.vy, 0);
+    if (flyer.pitch > 0) flyer.pitch *= 0.96;
   }
 
   vel.set(flyer.vx, flyer.vy, flyer.vz);
@@ -171,16 +283,37 @@ function integrate(dt: number, actions: Actions) {
   flyer.heading = ((flyer.yaw % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
 }
 
-export function stepFlyer(dt: number, actions: Actions, playing: boolean) {
+export function stepFlyer(
+  dt: number,
+  actions: Actions,
+  playing: boolean,
+  planeId: PlaneId,
+  flyMode: FlyMode,
+  mapId: MapId,
+) {
+  activePlane = planeId;
+  activeMode = flyMode;
+  activeMap = mapId;
   const cap = Math.min(dt, 0.1);
   flyer.scraping = Math.max(0, flyer.scraping - cap * 2.4);
   flyer.trauma = Math.max(0, flyer.trauma - cap * 2.6);
+  if (playing) {
+    flyer.simTime += cap;
+    flyer.grace = Math.max(0, flyer.grace - cap);
+  }
 
-  const targetBank = playing ? -actions.strafe * 0.52 : 0;
-  flyer.bank += (targetBank - flyer.bank) * (1 - Math.exp(-cap * 10));
+  const yawRate = wrapPi(flyer.yaw - prevYaw) / Math.max(cap, 1 / 120);
+  const targetBank = THREE.MathUtils.clamp(
+    -actions.strafe * BANK_MAX + yawRate * 0.18,
+    -0.92,
+    0.92,
+  );
+  flyer.bank += (targetBank - flyer.bank) * (1 - Math.exp(-cap * 8));
+  prevYaw = flyer.yaw;
 
-  if (!playing) {
+  if (!playing || flyer.crashed) {
     acc = 0;
+    if (flyer.crashed) collideFloor();
     return;
   }
 
@@ -192,15 +325,25 @@ export function stepFlyer(dt: number, actions: Actions, playing: boolean) {
   }
 }
 
-export function cameraFollow(camera: THREE.Camera, dt: number) {
+export function cameraFollow(camera: THREE.Camera, dt: number, flyMode: FlyMode, planeId: PlaneId) {
+  const plane = PLANES[planeId];
+  const mode = MODES[flyMode];
   getForward(forward);
+  const rush = THREE.MathUtils.clamp(flyer.speed / plane.maxSpeed, 0, 1);
+  const dist = (plane.follow + rush * 7) * mode.cam;
   camDesired.set(flyer.x, flyer.y, flyer.z);
-  camDesired.addScaledVector(forward, -FOLLOW_DIST);
-  camDesired.y += FOLLOW_HEIGHT;
-  const t = 1 - Math.exp(-dt * 7.5);
-  camera.position.x += (camDesired.x - camera.position.x) * t;
-  camera.position.y += (camDesired.y - camera.position.y) * t;
-  camera.position.z += (camDesired.z - camera.position.z) * t;
+  camDesired.addScaledVector(forward, -dist);
+  camDesired.y += FOLLOW_HEIGHT + rush * 1.4 + (flyMode === "photo" ? 4 : 0);
+  if (camSnap) {
+    camera.position.copy(camDesired);
+    camSnap = false;
+  } else {
+    const lag = flyMode === "photo" ? 2.4 : 5.2;
+    const t = 1 - Math.exp(-dt * lag);
+    camera.position.x += (camDesired.x - camera.position.x) * t;
+    camera.position.y += (camDesired.y - camera.position.y) * t;
+    camera.position.z += (camDesired.z - camera.position.z) * t;
+  }
 
   const shake = flyer.trauma * flyer.trauma;
   if (shake > 0.002) {
@@ -209,13 +352,13 @@ export function cameraFollow(camera: THREE.Camera, dt: number) {
     camera.position.y += Math.cos(w * 23.7) * shake * 0.22;
   }
 
-  lookAt.set(flyer.x, flyer.y + 0.6, flyer.z);
-  lookAt.addScaledVector(forward, 6);
+  lookAt.set(flyer.x, flyer.y + 0.55, flyer.z);
+  lookAt.addScaledVector(forward, 7 + rush * 4);
   camera.lookAt(lookAt);
   const persp = camera as THREE.PerspectiveCamera;
   if (persp.isPerspectiveCamera) {
-    const targetFov = 64 + (flyer.speed / MAX_SPEED) * 14;
-    persp.fov += (targetFov - persp.fov) * (1 - Math.exp(-dt * 4));
+    const targetFov = (flyMode === "photo" ? 52 : 62) + rush * 16;
+    persp.fov += (targetFov - persp.fov) * (1 - Math.exp(-dt * 3.5));
     persp.updateProjectionMatrix();
   }
 }

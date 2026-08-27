@@ -2,16 +2,17 @@ import { Canvas } from "@react-three/fiber";
 import { World } from "@/components/game/World";
 import { useGame } from "@/game/store";
 
-export default function FlightCanvas() {
+export default function FlightCanvas({ onReady }: { onReady?: () => void }) {
   const playing = useGame((s) => s.phase === "play");
   return (
     <Canvas
-      camera={{ fov: 68, near: 0.15, far: 1800, position: [28, 56, 224] }}
+      camera={{ fov: 68, near: 0.15, far: 1800, position: [28, 72, 228] }}
       dpr={[1, 1.75]}
       style={{ pointerEvents: playing ? "auto" : "none" }}
       gl={{ antialias: true, powerPreference: "high-performance" }}
       onCreated={({ gl }) => {
         gl.domElement.addEventListener("webglcontextlost", (e) => e.preventDefault());
+        requestAnimationFrame(() => onReady?.());
       }}
       onPointerDown={(e) => {
         if (useGame.getState().phase !== "play") return;

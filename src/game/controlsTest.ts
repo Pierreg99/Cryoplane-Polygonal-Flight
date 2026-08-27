@@ -47,8 +47,10 @@ export function installControlsTest() {
       flyer.vx = 0;
       flyer.vy = 0;
       flyer.vz = 0;
+      flyer.airspeed = 0;
+      flyer.speed = 0;
     },
-    reset: () => resetFlyer(),
+    reset: () => resetFlyer("dart", "pack"),
     clearKeys: () => clearInjectedKeys(),
   };
 }

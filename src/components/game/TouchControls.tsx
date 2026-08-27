@@ -1,5 +1,5 @@
 import { useRef, type ReactNode } from "react";
-import { ArrowDown, ArrowUp } from "lucide-react";
+import { ArrowDown, ArrowUp, Crosshair } from "lucide-react";
 import { axes } from "@/game/input";
 import { useGame } from "@/game/store";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,14 @@ export function TouchControls() {
       <Stick className="pointer-events-auto absolute bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-4" />
       <LookPad />
       <div className="pointer-events-auto absolute right-4 bottom-[max(1.5rem,env(safe-area-inset-bottom))] flex flex-col gap-2">
+        <HoldButton
+          aria-label="Fire"
+          onHold={(held) => {
+            axes.firing = held;
+          }}
+        >
+          <Crosshair className="size-5" />
+        </HoldButton>
         <HoldButton aria-label="Climb" onHold={(held) => (axes.touchLift = held ? 1 : 0)}>
           <ArrowUp className="size-5" />
         </HoldButton>
@@ -22,6 +30,17 @@ export function TouchControls() {
         >
           <ArrowDown className="size-5" />
         </HoldButton>
+        <button
+          type="button"
+          aria-label="Cycle fly mode"
+          className="flex h-11 min-w-11 items-center justify-center rounded-md border border-border bg-surface px-2 font-mono text-xs text-fg"
+          onPointerDown={(e) => {
+            e.preventDefault();
+            useGame.getState().cycleMode();
+          }}
+        >
+          Mode
+        </button>
       </div>
     </div>
   );

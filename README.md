@@ -1,6 +1,6 @@
-# CryoPlane
+# Cryoplane
 
-Low-poly polar continent flyer. Mouse look, keyboard thrust, height-based terrain coloring, wireframe, day/night lighting, and a mini HUD for altitude and speed.
+Low-poly polar flyer. Hangar with five airframes, five maps, six fly modes, and a three-tier build (armor / guns / engine). Hull crashes on hard impact. Combat mode hunts interceptors.
 
 ## Play
 
@@ -9,9 +9,13 @@ npm install
 npm run dev
 ```
 
-- **W / S** thrust / brake
-- **A / D** strafe
-- **Mouse** look (click to lock, or drag)
-- **Space / Shift** climb / descend
+- **W / S** throttle
+- **A / D** bank left / right
+- **Mouse** look / pitch
+- **R** or click (locked) fire
+- **Space / Shift** pitch up / down (hover lift on the Hopper)
+- **2** combat mode
+- **1–6** or **M** fly mode
+- **L / B** landing / photo
 - **F** wireframe
 - **N** day / night

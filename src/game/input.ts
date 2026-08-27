@@ -6,6 +6,10 @@ const GAME_KEYS = new Set([
   "KeyF",
   "KeyN",
   "KeyC",
+  "KeyM",
+  "KeyL",
+  "KeyB",
+  "KeyR",
   "Space",
   "ShiftLeft",
   "ShiftRight",
@@ -14,6 +18,12 @@ const GAME_KEYS = new Set([
   "ArrowLeft",
   "ArrowRight",
   "Escape",
+  "Digit1",
+  "Digit2",
+  "Digit3",
+  "Digit4",
+  "Digit5",
+  "Digit6",
 ]);
 
 const held = new Set<string>();
@@ -28,6 +38,7 @@ export const axes = {
   touchLookX: 0,
   touchLookY: 0,
   touchLift: 0,
+  firing: false,
   dragging: false,
 };
 
@@ -84,12 +95,16 @@ export type Actions = {
   wireframe: boolean;
   night: boolean;
   pause: boolean;
+  cycleMode: boolean;
+  mode: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+  fire: boolean;
 };
 
 export function readActions(): Actions {
   let thrust = 0;
   let strafe = 0;
   let lift = 0;
+  let firePad = false;
   if (has("KeyW") || has("ArrowUp")) thrust += 1;
   if (has("KeyS") || has("ArrowDown")) thrust -= 1;
   if (has("KeyA") || has("ArrowLeft")) strafe -= 1;
@@ -113,8 +128,19 @@ export function readActions(): Actions {
       axes.lookAccumY += r.y * 8;
       if (pad.buttons[0]?.pressed) lift += 1;
       if (pad.buttons[1]?.pressed) lift -= 1;
+      if (pad.buttons[7]?.pressed || pad.buttons[5]?.pressed) firePad = true;
     }
   }
+
+  const fire = has("KeyR") || axes.firing || firePad;
+
+  let mode: Actions["mode"] = 0;
+  if (justPressed("Digit1")) mode = 1;
+  else if (justPressed("Digit2")) mode = 2;
+  else if (justPressed("Digit3")) mode = 3;
+  else if (justPressed("Digit4")) mode = 4;
+  else if (justPressed("Digit5") || justPressed("KeyL")) mode = 5;
+  else if (justPressed("Digit6") || justPressed("KeyB")) mode = 6;
 
   return {
     thrust: clamp(thrust, -1, 1),
@@ -123,6 +149,9 @@ export function readActions(): Actions {
     wireframe: justPressed("KeyF"),
     night: justPressed("KeyN"),
     pause: justPressed("Escape"),
+    cycleMode: justPressed("KeyM"),
+    mode,
+    fire,
   };
 }
 
@@ -145,6 +174,7 @@ function onBlur() {
   axes.touchMoveX = 0;
   axes.touchMoveY = 0;
   axes.touchLift = 0;
+  axes.firing = false;
   axes.dragging = false;
 }
 
@@ -181,7 +211,10 @@ export function attachInput(target: HTMLElement) {
   target.addEventListener(
     "pointerdown",
     (e) => {
-      if (e.pointerType === "mouse" && e.button === 0) axes.dragging = true;
+      if (e.pointerType === "mouse" && e.button === 0) {
+        if (document.pointerLockElement === target) axes.firing = true;
+        else axes.dragging = true;
+      }
     },
     { signal },
   );
@@ -189,6 +222,7 @@ export function attachInput(target: HTMLElement) {
     "pointerup",
     () => {
       axes.dragging = false;
+      axes.firing = false;
     },
     { signal },
   );
@@ -196,6 +230,7 @@ export function attachInput(target: HTMLElement) {
     "pointercancel",
     () => {
       axes.dragging = false;
+      axes.firing = false;
     },
     { signal },
   );
