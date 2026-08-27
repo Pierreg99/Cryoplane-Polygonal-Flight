@@ -96,6 +96,13 @@ export function buildTerrainGeometry(mapId: MapId): THREE.BufferGeometry {
     const mz = (a.z + b.z + c.z) / 3;
     const h = (a.y + b.y + c.y) / 3;
     colorFor(h, slope, moistureAt(mx, mz), sea, tmp);
+    const shade = 1 - slope * 0.34;
+    tmp.r *= shade;
+    tmp.g *= shade;
+    tmp.b *= shade;
+    if (h > 30 && ((i * 17 + Math.floor(mx)) % 19) === 0) {
+      tmp.lerp(cPeak, 0.22);
+    }
     for (let j = 0; j < 3; j++) {
       const k = (i + j) * 3;
       colors[k] = tmp.r;

@@ -54,6 +54,7 @@ export function World() {
       <fog attach="fog" args={["#8ea8b8", FOG_NEAR, FOG_FAR]} />
       <Lights />
       <SkyDome />
+      <Clouds />
       <Celestials />
       <group key={mapId}>
         <Terrain />
@@ -102,16 +103,16 @@ function Lights() {
       (scene.fog as THREE.Fog).near = FOG_NEAR + m * 18;
       (scene.fog as THREE.Fog).far = FOG_FAR - m * 90;
     }
-    if (amb.current) amb.current.intensity = 0.42 - m * 0.32;
+    if (amb.current) amb.current.intensity = 0.28 - m * 0.18;
     if (hemi.current) {
-      hemi.current.intensity = 0.55 - m * 0.28;
+      hemi.current.intensity = 0.72 - m * 0.32;
       hemi.current.color.copy(dayHemiSky).lerp(nightHemiSky, m);
       hemi.current.groundColor.copy(dayHemiGround).lerp(nightHemiGround, m);
     }
     if (sun.current) {
       const elev = Math.max(0.08, 0.92 - m * 0.85);
-      sun.current.position.set(-180, 220 * elev, 120);
-      sun.current.intensity = 1.35 - m * 1.18;
+      sun.current.position.set(-180, 240 * elev, 120);
+      sun.current.intensity = 1.85 - m * 1.55;
       sun.current.color.copy(daySun).lerp(nightSun, m);
     }
     if (moon.current) {
@@ -123,9 +124,9 @@ function Lights() {
 
   return (
     <>
-      <ambientLight ref={amb} intensity={0.42} />
-      <hemisphereLight ref={hemi} args={["#c9d8e2", "#6a7a82", 0.55]} />
-      <directionalLight ref={sun} position={[-180, 220, 120]} intensity={1.35} />
+      <ambientLight ref={amb} intensity={0.28} />
+      <hemisphereLight ref={hemi} args={["#c9d8e2", "#6a7a82", 0.72]} />
+      <directionalLight ref={sun} position={[-180, 240, 120]} intensity={1.85} />
       <directionalLight
         ref={moon}
         position={[90, 80, -160]}
@@ -215,10 +216,54 @@ function Celestials() {
   );
 }
 
+function Clouds() {
+  const group = useRef<THREE.Group>(null);
+  const mats = useRef<THREE.MeshLambertMaterial[]>([]);
+  useFrame((_, dt) => {
+    if (!group.current) return;
+    group.current.rotation.y += dt * 0.012;
+    const m = hud.nightMix;
+    for (const mat of mats.current) {
+      mat.opacity = 0.42 * (1 - m * 0.75);
+    }
+  });
+  const puffs = useMemo(
+    () =>
+      [
+        [80, 118, -40, 46, 8, 22],
+        [-120, 132, 60, 38, 7, 18],
+        [40, 124, 140, 52, 9, 24],
+        [-60, 140, -160, 34, 6, 16],
+        [170, 126, 20, 28, 6, 14],
+        [-20, 136, 200, 40, 7, 20],
+      ] as const,
+    [],
+  );
+  return (
+    <group ref={group}>
+      {puffs.map((p, i) => (
+        <mesh key={i} position={[p[0], p[1], p[2]]} frustumCulled={false}>
+          <boxGeometry args={[p[3], p[4], p[5]]} />
+          <meshLambertMaterial
+            ref={(el) => {
+              if (el) mats.current[i] = el;
+            }}
+            color="#e8eef2"
+            transparent
+            opacity={0.42}
+            depthWrite={false}
+            flatShading
+          />
+        </mesh>
+      ))}
+    </group>
+  );
+}
+
 function Terrain() {
   const mapId = useGame((s) => s.mapId);
   const geo = useMemo(() => buildTerrainGeometry(mapId), [mapId]);
-  const mat = useRef<THREE.MeshLambertMaterial>(null);
+  const mat = useRef<THREE.MeshStandardMaterial>(null);
   const wireframe = useGame((s) => s.wireframe);
   const night = useGame((s) => s.night);
 
@@ -233,10 +278,12 @@ function Terrain() {
 
   return (
     <mesh geometry={geo}>
-      <meshLambertMaterial
+      <meshStandardMaterial
         ref={mat}
         vertexColors
         flatShading
+        roughness={0.88}
+        metalness={0.04}
         wireframe={wireframe}
         emissive="#000000"
       />
@@ -248,13 +295,21 @@ function Sea() {
   const night = useGame((s) => s.night);
   const mapId = useGame((s) => s.mapId);
   const sea = MAPS[mapId].sea;
+  const ref = useRef<THREE.Mesh>(null);
+  useFrame(({ clock }) => {
+    if (ref.current) {
+      ref.current.position.y = sea + Math.sin(clock.elapsedTime * 0.35) * 0.18;
+    }
+  });
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, sea, 0]}>
-      <circleGeometry args={[WORLD * 0.7, 48]} />
-      <meshLambertMaterial
-        color={night ? "#1b3c48" : "#5e96a6"}
+    <mesh ref={ref} rotation={[-Math.PI / 2, 0, 0]} position={[0, sea, 0]}>
+      <circleGeometry args={[WORLD * 0.7, 56]} />
+      <meshStandardMaterial
+        color={night ? "#1b3c48" : "#4e8fa4"}
         transparent
-        opacity={0.82}
+        opacity={0.86}
+        roughness={0.28}
+        metalness={0.22}
         flatShading
       />
     </mesh>
@@ -296,9 +351,11 @@ function Spires() {
   const night = useGame((s) => s.night);
   return (
     <instancedMesh ref={mesh} args={[geo, undefined, poses.length]}>
-      <meshLambertMaterial
+      <meshStandardMaterial
         color={night ? "#8aa0ac" : "#c5d2da"}
         flatShading
+        roughness={0.62}
+        metalness={0.08}
         emissive={night ? "#142028" : "#000000"}
       />
     </instancedMesh>
@@ -343,9 +400,11 @@ function Icebergs() {
   const night = useGame((s) => s.night);
   return (
     <instancedMesh ref={mesh} args={[geo, undefined, poses.length]}>
-      <meshLambertMaterial
+      <meshStandardMaterial
         color={night ? "#9bb3be" : "#e4eef2"}
         flatShading
+        roughness={0.48}
+        metalness={0.12}
         emissive={night ? "#152028" : "#000000"}
       />
     </instancedMesh>
@@ -359,19 +418,19 @@ function Outpost() {
     <group position={[pad.x, y, pad.z]}>
       <mesh position={[0, 1.1, 0]}>
         <boxGeometry args={[6.4, 2.2, 4.2]} />
-        <meshLambertMaterial color="#8a6e5e" flatShading />
+        <meshStandardMaterial color="#8a6e5e" flatShading roughness={0.78} metalness={0.04} />
       </mesh>
       <mesh position={[3.6, 2.4, 0.4]}>
         <boxGeometry args={[1.6, 4.8, 1.6]} />
-        <meshLambertMaterial color="#6e5a4e" flatShading />
+        <meshStandardMaterial color="#6e5a4e" flatShading roughness={0.8} />
       </mesh>
       <mesh position={[-2.2, 0.15, 3.2]}>
         <boxGeometry args={[2.2, 0.3, 3.4]} />
-        <meshLambertMaterial color="#c5d0d6" flatShading />
+        <meshStandardMaterial color="#c5d0d6" flatShading roughness={0.55} metalness={0.08} />
       </mesh>
       <mesh position={[0, 3.6, 0]}>
         <boxGeometry args={[1.1, 0.2, 3.8]} />
-        <meshLambertMaterial color="#9ec4d4" flatShading />
+        <meshStandardMaterial color="#9ec4d4" flatShading roughness={0.4} metalness={0.18} />
       </mesh>
     </group>
   );

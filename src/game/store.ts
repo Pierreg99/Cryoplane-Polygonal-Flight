@@ -47,7 +47,7 @@ function persist(key: string, value: string | boolean) {
 }
 
 export const useGame = create<GameStore>((set) => ({
-  phase: "boot",
+  phase: "start",
   wireframe: false,
   night: false,
   pointerLocked: false,

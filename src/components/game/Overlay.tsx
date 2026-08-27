@@ -40,51 +40,22 @@ export function Overlay({
   onRestart: () => void;
 }) {
   const phase = useGame((s) => s.phase);
-  const booting = phase === "boot";
-  const showMenu = phase === "start" || phase === "paused";
+  const showMenu = phase === "start" || phase === "paused" || phase === "boot";
 
   return (
     <div
       className={cn(
         "absolute inset-0 z-20 text-fg",
-        booting || showMenu || phase === "crashed"
+        showMenu || phase === "crashed"
           ? "pointer-events-auto"
           : "pointer-events-none",
       )}
     >
-      {booting && <BootScreen />}
       <Hud visible={phase === "play" || phase === "paused"} />
       {showMenu && <Menu onPlay={onPlay} />}
       {phase === "crashed" && <CrashScreen onRestart={onRestart} />}
       {phase === "play" && <Crosshair />}
       {phase === "play" && <Radar />}
-    </div>
-  );
-}
-
-function BootScreen() {
-  return (
-    <div className="absolute inset-0 flex items-center justify-center bg-bg">
-      <div className="w-full max-w-sm px-6 text-center">
-        <p className="font-mono text-xs font-medium tracking-widest text-accent uppercase">
-          Polar flight
-        </p>
-        <h1 className="mt-2 font-display text-4xl font-semibold tracking-tight">
-          Cryoplane
-        </h1>
-        <p className="mt-3 font-mono text-xs tracking-wide text-muted">
-          Aligning gyro
-        </p>
-        <div
-          className="mt-5 h-1 overflow-hidden rounded-full bg-elevated"
-          role="progressbar"
-          aria-label="Loading world"
-          aria-valuemin={0}
-          aria-valuemax={100}
-        >
-          <div className="boot-bar h-full rounded-full bg-accent" />
-        </div>
-      </div>
     </div>
   );
 }
@@ -184,7 +155,6 @@ function Menu({ onPlay }: { onPlay: () => void }) {
         <p className="mt-2 max-w-lg text-sm leading-normal text-muted text-pretty">
           Fit the airframe, pick a shelf, then fly. Bank left on A. Combat mode
           hunts interceptors — hold R to fire. Radar marks rings and bandits.
-          Land slow on the strip.
         </p>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_14rem]">

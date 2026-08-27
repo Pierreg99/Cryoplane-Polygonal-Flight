@@ -9,6 +9,8 @@
 | Hull crash + Downed overlay | Done |
 | Interceptors + fire | Done |
 | Heading-up radar | Done |
-| Docs + stills on GitHub | This pass |
+| Hangar-first load (no gyro lock) | Done |
+| Energy physics + PBR ice | Done |
+| Docs + stills on GitHub | Done |
 | Engine / gun audio | Not started |
 | Campaign sorties | Not started |

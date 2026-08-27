@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0 — 2026-08-27
+
+- Hangar opens immediately (no gyro splash). World streams behind it.
+- Energy flight: engine spool, pitch inertia, load-based drag, stall buffet, flare landings
+- Graphics: ACES tone map, PBR ice/sea/airframes, slope AO, low-poly clouds
+
 ## 0.4.0 — 2026-08-27
 
 - Heading-up radar: player, waypoint rings, runway, traffic, interceptors
