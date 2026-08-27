@@ -1,6 +1,10 @@
 # Cryoplane
 
-Low-poly polar flyer. Hangar with five airframes, five maps, six fly modes, and a three-tier build (armor / guns / engine). Hull crashes on hard impact. Combat mode hunts interceptors.
+Low-poly polar flyer. Hangar with five airframes, five maps, six fly modes, and a three-tier build (armor / guns / engine). Hull crashes on hard impact. Combat mode hunts interceptors. Heading-up radar tracks you, rings, traffic, and bandits.
+
+![Hangar](docs/images/hangar.png)
+
+![Combat radar](docs/images/combat.png)
 
 ## Play
 
@@ -19,3 +23,12 @@ npm run dev
 - **L / B** landing / photo
 - **F** wireframe
 - **N** day / night
+
+Radar is heading-up, 260 m range. You are the nose. Accent rings are the circuit. Danger dots are interceptors.
+
+## Docs
+
+- [CHANGELOG](CHANGELOG.md)
+- [ROADMAP](ROADMAP.md)
+- [PLAN](PLAN.md)
+- [PROGRESS](PROGRESS.md)

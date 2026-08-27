@@ -1,0 +1,24 @@
+# Changelog
+
+## 0.4.0 — 2026-08-27
+
+- Heading-up radar: player, waypoint rings, runway, traffic, interceptors
+- Hangar copy and docs set (README, changelog, roadmap, plan, progress)
+- Flight stills under `docs/images/`
+
+## 0.3.0 — 2026-08-27
+
+- Hull crash on hard impact or fire; Relight / Hangar overlay
+- Armor / guns / engine build tiers
+- Interceptor combat (R / click / pad fire)
+- Hangar airframe stats
+
+## 0.2.0 — 2026-08-27
+
+- Five planes, five maps, six fly modes
+- Energy flight model, waypoint rings, strip landings
+- AI traffic, aurora, day/night, wireframe
+
+## 0.1.0 — 2026-08-27
+
+- Polar continent flyer, mouse look, WASD thrust, mini HUD

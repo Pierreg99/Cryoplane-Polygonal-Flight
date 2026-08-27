@@ -29,6 +29,7 @@ import { hud } from "@/game/hud";
 import { resetMission } from "@/game/mission";
 import { useGame } from "@/game/store";
 import { rebuildTraffic } from "@/game/traffic";
+import { Radar } from "@/components/game/Radar";
 import { cn } from "@/lib/utils";
 
 export function Overlay({
@@ -56,6 +57,7 @@ export function Overlay({
       {showMenu && <Menu onPlay={onPlay} />}
       {phase === "crashed" && <CrashScreen onRestart={onRestart} />}
       {phase === "play" && <Crosshair />}
+      {phase === "play" && <Radar />}
     </div>
   );
 }
@@ -181,7 +183,8 @@ function Menu({ onPlay }: { onPlay: () => void }) {
         </h1>
         <p className="mt-2 max-w-lg text-sm leading-normal text-muted text-pretty">
           Fit the airframe, pick a shelf, then fly. Bank left on A. Combat mode
-          hunts interceptors — hold R to fire. Land slow on the strip.
+          hunts interceptors — hold R to fire. Radar marks rings and bandits.
+          Land slow on the strip.
         </p>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_14rem]">
@@ -263,8 +266,8 @@ function Menu({ onPlay }: { onPlay: () => void }) {
             <dd>Combat mode</dd>
           </div>
           <div>
-            <dt className="text-fg">F / N</dt>
-            <dd>Wire / night</dd>
+            <dt className="text-fg">Radar</dt>
+            <dd>You · rings · bandits</dd>
           </div>
         </dl>
 
