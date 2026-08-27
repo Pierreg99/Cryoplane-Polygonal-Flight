@@ -23,6 +23,7 @@ npm run dev
 - **L / B** landing / photo
 - **F** wireframe
 - **N** day / night
+- **Mute** in the HUD after you fly (engine note starts on Click to fly)
 
 Radar is heading-up, 260 m range. You are the nose. Accent rings are the circuit. Danger dots are interceptors.
 

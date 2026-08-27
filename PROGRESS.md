@@ -12,5 +12,6 @@
 | Hangar-first load (no gyro lock) | Done |
 | Energy physics + PBR ice | Done |
 | Docs + stills on GitHub | Done |
-| Engine / gun audio | Not started |
+| Engine / gun audio | Done |
+| Control-surface / prop / sea motion | Done |
 | Campaign sorties | Not started |

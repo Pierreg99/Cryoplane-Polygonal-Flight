@@ -22,6 +22,7 @@ type GameStore = {
   armor: number;
   guns: number;
   engine: number;
+  muted: boolean;
   setPhase: (phase: Phase) => void;
   toggleWireframe: () => void;
   toggleNight: () => void;
@@ -36,6 +37,7 @@ type GameStore = {
   setArmor: (n: number) => void;
   setGuns: (n: number) => void;
   setEngine: (n: number) => void;
+  toggleMuted: () => void;
 };
 
 function persist(key: string, value: string | boolean) {
@@ -58,6 +60,7 @@ export const useGame = create<GameStore>((set) => ({
   armor: 1,
   guns: 1,
   engine: 1,
+  muted: false,
   setPhase: (phase) => set({ phase }),
   toggleWireframe: () =>
     set((s) => {
@@ -111,6 +114,12 @@ export const useGame = create<GameStore>((set) => ({
     persist("cryoplane.engine", String(n));
     set({ engine: n });
   },
+  toggleMuted: () =>
+    set((s) => {
+      const muted = !s.muted;
+      persist("cryoplane.muted", muted);
+      return { muted };
+    }),
 }));
 
 export function hydratePrefs() {
@@ -123,6 +132,7 @@ export function hydratePrefs() {
     const armor = clampTier(localStorage.getItem("cryoplane.armor"), 1);
     const guns = clampTier(localStorage.getItem("cryoplane.guns"), 1);
     const engine = clampTier(localStorage.getItem("cryoplane.engine"), 1);
+    const muted = localStorage.getItem("cryoplane.muted") === "1";
     const planeId: PlaneId =
       planeRaw === "hauler" ||
       planeRaw === "glider" ||
@@ -143,7 +153,7 @@ export function hydratePrefs() {
       ? (modeRaw as FlyMode)
       : "cruise";
     configureNoise(mapId);
-    useGame.setState({ night, wireframe, planeId, mapId, flyMode, armor, guns, engine });
+    useGame.setState({ night, wireframe, planeId, mapId, flyMode, armor, guns, engine, muted });
   } catch {
     /* ignore */
   }

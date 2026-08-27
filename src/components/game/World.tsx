@@ -1,6 +1,7 @@
 import { useFrame, useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
+import { tickAudio } from "@/game/audio";
 import { CraftMesh } from "@/components/game/CraftMesh";
 import { MAPS, MODE_ORDER, MODES } from "@/game/catalog";
 import { combat, hostiles, shots, stepCombat, tryPlayerFire } from "@/game/combat";
@@ -74,6 +75,7 @@ export function World() {
       <StarField />
       <Snow />
       <Craft />
+      <Bursts />
       <SimLoop />
     </>
   );
@@ -295,21 +297,33 @@ function Sea() {
   const night = useGame((s) => s.night);
   const mapId = useGame((s) => s.mapId);
   const sea = MAPS[mapId].sea;
+  const geo = useMemo(() => new THREE.PlaneGeometry(WORLD * 1.35, WORLD * 1.35, 36, 36), []);
   const ref = useRef<THREE.Mesh>(null);
+  useEffect(() => () => geo.dispose(), [geo]);
   useFrame(({ clock }) => {
-    if (ref.current) {
-      ref.current.position.y = sea + Math.sin(clock.elapsedTime * 0.35) * 0.18;
+    const mesh = ref.current;
+    if (!mesh) return;
+    const pos = mesh.geometry.attributes.position;
+    const t = clock.elapsedTime;
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      const h =
+        Math.sin(x * 0.018 + t * 0.7) * 0.45 +
+        Math.sin(y * 0.022 + t * 0.55) * 0.32 +
+        Math.sin((x + y) * 0.01 + t * 0.35) * 0.2;
+      pos.setZ(i, h);
     }
+    pos.needsUpdate = true;
   });
   return (
-    <mesh ref={ref} rotation={[-Math.PI / 2, 0, 0]} position={[0, sea, 0]}>
-      <circleGeometry args={[WORLD * 0.7, 56]} />
+    <mesh ref={ref} rotation={[-Math.PI / 2, 0, 0]} position={[0, sea, 0]} geometry={geo}>
       <meshStandardMaterial
         color={night ? "#1b3c48" : "#4e8fa4"}
         transparent
-        opacity={0.86}
-        roughness={0.28}
-        metalness={0.22}
+        opacity={0.88}
+        roughness={0.22}
+        metalness={0.28}
         flatShading
       />
     </mesh>
@@ -391,6 +405,25 @@ function Icebergs() {
     });
     mesh.current.instanceMatrix.needsUpdate = true;
   }, [poses]);
+  useFrame(({ clock }) => {
+    const inst = mesh.current;
+    if (!inst) return;
+    const m = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const p = new THREE.Vector3();
+    const s = new THREE.Vector3();
+    const e = new THREE.Euler();
+    const t = clock.elapsedTime;
+    poses.forEach((pose, i) => {
+      p.set(pose.x, pose.y + Math.sin(t * 0.55 + i) * 0.4, pose.z);
+      e.set(0.08, pose.ry + t * 0.015, 0.04);
+      q.setFromEuler(e);
+      s.set(pose.s * 0.55, pose.s, pose.s * 0.55);
+      m.compose(p, q, s);
+      inst.setMatrixAt(i, m);
+    });
+    inst.instanceMatrix.needsUpdate = true;
+  });
   useEffect(
     () => () => {
       geo.dispose();
@@ -586,21 +619,38 @@ function SnowField() {
 function Craft() {
   const group = useRef<THREE.Group>(null);
   const trail = useRef<THREE.Mesh>(null);
+  const muzzle = useRef<THREE.Mesh>(null);
   const planeId = useGame((s) => s.planeId);
 
-  useFrame(() => {
+  useFrame((_, dt) => {
     if (!group.current) return;
     craftMatrix(group.current);
     if (trail.current) {
       const mat = trail.current.material as THREE.MeshBasicMaterial;
-      mat.opacity = Math.min(0.78, flyer.throttle * 0.55 + flyer.speed / 110);
-      trail.current.scale.set(1, 0.55 + flyer.throttle * 1.1, 1);
+      mat.opacity = Math.min(0.82, flyer.throttle * 0.6 + flyer.speed / 100);
+      trail.current.scale.set(1, 0.55 + flyer.throttle * 1.35 + flyer.airspeed * 0.01, 1);
+    }
+    if (muzzle.current) {
+      const mat = muzzle.current.material as THREE.MeshBasicMaterial;
+      const on = combat.playerCool > 0.04 ? 1 : 0;
+      mat.opacity += (on * 0.85 - mat.opacity) * (1 - Math.exp(-dt * 28));
+      muzzle.current.scale.setScalar(0.7 + combat.playerCool * 4);
     }
   });
 
   return (
     <group ref={group}>
-      <CraftMesh planeId={planeId} trailRef={trail} />
+      <CraftMesh planeId={planeId} trailRef={trail} live />
+      <mesh ref={muzzle} position={[0, 0.02, 1.55]}>
+        <sphereGeometry args={[0.22, 6, 6]} />
+        <meshBasicMaterial
+          color="#e8eef2"
+          transparent
+          opacity={0}
+          blending={THREE.AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
     </group>
   );
 }
@@ -643,6 +693,7 @@ function SimLoop() {
       stepCombat(dt, false, state.flyMode);
     }
     cameraFollow(camera, dt, state.flyMode, state.planeId);
+    tickAudio(active);
     const map = MAPS[state.mapId];
     writeHud({
       altitude: flyer.agl,
@@ -734,12 +785,16 @@ function Rings() {
     g.children.forEach((child, i) => {
       const ring = mission.rings[i];
       if (!ring) return;
-      child.position.set(ring.x, ring.y, ring.z);
-      child.rotation.y += 0.01;
-      const mat = (child as THREE.Mesh).material as THREE.MeshBasicMaterial;
       const active = i === mission.index;
-      mat.color.set(active ? "#9ec4d4" : ring.hit ? "#6b7680" : "#8b98a3");
-      mat.opacity = active ? 0.9 : 0.35;
+      child.position.set(ring.x, ring.y, ring.z);
+      child.rotation.y += active ? 0.028 : 0.01;
+      child.rotation.z = Math.sin(flyer.simTime * 2.2 + i) * (active ? 0.12 : 0.04);
+      const mat = (child as THREE.Mesh).material as THREE.MeshBasicMaterial;
+      const hit = ring.hit;
+      mat.color.set(active ? "#9ec4d4" : hit ? "#6b7680" : "#8b98a3");
+      mat.opacity = active ? 0.55 + Math.sin(flyer.simTime * 6) * 0.28 : 0.32;
+      const pulse = active ? 1 + Math.sin(flyer.simTime * 5) * 0.08 : 1;
+      child.scale.setScalar(pulse);
     });
   });
   const count = 6;
@@ -797,6 +852,58 @@ function Traffic() {
         </group>
       ))}
     </group>
+  );
+}
+
+function Bursts() {
+  const mesh = useRef<THREE.InstancedMesh>(null);
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+  const items = useRef(
+    Array.from({ length: 8 }, () => ({ live: 0, x: 0, y: 0, z: 0, age: 0 })),
+  );
+  const seenKills = useRef(0);
+  useFrame((_, dt) => {
+    if (combat.kills > seenKills.current) {
+      const h = hostiles.find((en) => !en.live) ?? hostiles[0];
+      const slot = items.current.find((it) => it.live <= 0);
+      if (slot && h) {
+        slot.live = 1;
+        slot.age = 0;
+        slot.x = h.x;
+        slot.y = h.y;
+        slot.z = h.z;
+      }
+      seenKills.current = combat.kills;
+    }
+    const m = mesh.current;
+    if (!m) return;
+    items.current.forEach((it, i) => {
+      if (it.live > 0) {
+        it.age += dt;
+        const k = Math.min(1, it.age / 0.55);
+        dummy.position.set(it.x, it.y, it.z);
+        dummy.scale.setScalar(1.2 + k * 6);
+        if (it.age > 0.55) it.live = 0;
+      } else {
+        dummy.scale.setScalar(0);
+        dummy.position.set(0, -40, 0);
+      }
+      dummy.updateMatrix();
+      m.setMatrixAt(i, dummy.matrix);
+    });
+    m.instanceMatrix.needsUpdate = true;
+  });
+  return (
+    <instancedMesh ref={mesh} args={[undefined, undefined, 8]}>
+      <sphereGeometry args={[0.7, 6, 6]} />
+      <meshBasicMaterial
+        color="#c9867a"
+        transparent
+        opacity={0.35}
+        blending={THREE.AdditiveBlending}
+        depthWrite={false}
+      />
+    </instancedMesh>
   );
 }
 

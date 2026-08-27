@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useState } from "react";
 import { Overlay } from "@/components/game/Overlay";
 import { TouchControls } from "@/components/game/TouchControls";
+import { applyMute, resetAudioCues, unlockAudio } from "@/game/audio";
 import { resetCombat } from "@/game/combat";
 import { installControlsTest } from "@/game/controlsTest";
 import { resetFlyer } from "@/game/flyer";
@@ -48,6 +49,7 @@ export function GameApp() {
     rebuildTraffic();
     resetCombat();
     resetFlyer(s.planeId, s.mapId);
+    resetAudioCues();
   };
 
   const lockPointer = () => {
@@ -63,6 +65,8 @@ export function GameApp() {
   };
 
   const onPlay = () => {
+    unlockAudio();
+    applyMute(useGame.getState().muted);
     const s = useGame.getState();
     if (s.phase === "start" || s.phase === "boot" || s.phase === "crashed") {
       sortie();
@@ -72,6 +76,8 @@ export function GameApp() {
   };
 
   const onRestart = () => {
+    unlockAudio();
+    applyMute(useGame.getState().muted);
     sortie();
     setPhase("play");
     lockPointer();

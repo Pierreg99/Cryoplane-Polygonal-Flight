@@ -11,6 +11,8 @@ import {
   Shield,
   Crosshair as CrosshairIcon,
   RotateCcw,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,6 +25,7 @@ import {
   type MapId,
   type PlaneId,
 } from "@/game/catalog";
+import { applyMute } from "@/game/audio";
 import { resetCombat } from "@/game/combat";
 import { resetFlyer } from "@/game/flyer";
 import { hud } from "@/game/hud";
@@ -155,6 +158,7 @@ function Menu({ onPlay }: { onPlay: () => void }) {
         <p className="mt-2 max-w-lg text-sm leading-normal text-muted text-pretty">
           Fit the airframe, pick a shelf, then fly. Bank left on A. Combat mode
           hunts interceptors — hold R to fire. Radar marks rings and bandits.
+          Engine note starts when you fly.
         </p>
 
         <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_14rem]">
@@ -375,8 +379,10 @@ function Hud({ visible }: { visible: boolean }) {
   const night = useGame((s) => s.night);
   const wireframe = useGame((s) => s.wireframe);
   const pointerLocked = useGame((s) => s.pointerLocked);
+  const muted = useGame((s) => s.muted);
   const toggleNight = useGame((s) => s.toggleNight);
   const toggleWireframe = useGame((s) => s.toggleWireframe);
+  const toggleMuted = useGame((s) => s.toggleMuted);
   const cycleMode = useGame((s) => s.cycleMode);
   const setPhase = useGame((s) => s.setPhase);
 
@@ -465,6 +471,19 @@ function Hud({ visible }: { visible: boolean }) {
             onClick={toggleNight}
           >
             {night ? <Sun className="size-4" /> : <Moon className="size-4" />}
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            aria-label={muted ? "Unmute" : "Mute"}
+            aria-pressed={muted}
+            onClick={() => {
+              toggleMuted();
+              applyMute(!muted);
+            }}
+          >
+            {muted ? <VolumeX className="size-4" /> : <Volume2 className="size-4" />}
           </Button>
           <Button
             type="button"

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0 — 2026-08-27
+
+- Polar audio: engine, wind, stall, guns, rings, crash (unlocks on fly)
+- Control surfaces, prop spin, muzzle flash, kill bursts, pulsing rings
+- Chop on the sea, bergs that ride the swell
+
 ## 0.5.0 — 2026-08-27
 
 - Hangar opens immediately (no gyro splash). World streams behind it.
