@@ -6,6 +6,8 @@ Low-poly polar flyer. Hangar opens immediately. Five airframes, five maps, six f
 
 ![Combat radar](docs/images/combat.png)
 
+**Play live:** [pierreg99.github.io/Cryoplane-Polygonal-Flight](https://pierreg99.github.io/Cryoplane-Polygonal-Flight/)
+
 ## Play
 
 ```bash
@@ -24,6 +26,7 @@ npm run dev
 - **F** wireframe
 - **N** day / night
 - **Mute** in the HUD after you fly (engine note starts on Click to fly)
+- **Touch:** left stick thrust/bank · right look pad · fire / climb / descend · Mode
 
 Radar is heading-up, 260 m range. You are the nose. Accent rings are the circuit. Danger dots are interceptors.
 

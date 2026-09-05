@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.7.0 — 2026-09-06
+
+- Immersion pass: vignette, frost scan, stall/scrape edge pulse, hull glow, hangar ice sheen, radar chrome
+- Touch HUD overhaul (Flash Fin): larger frost-glass stick with deadzone, look-pad feedback, danger fire cluster, climb/descend row, Mode chip
+- GitHub Pages static deploy (`NITRO_PRESET=github-pages`, base `/Cryoplane-Polygonal-Flight/`)
+
 ## 0.6.0 — 2026-08-27
 
 - Polar audio: engine, wind, stall, guns, rings, crash (unlocks on fly)

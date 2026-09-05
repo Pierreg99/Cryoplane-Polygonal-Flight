@@ -16,3 +16,4 @@ coverage/
 .cache/
 AGENTS.md
 AGENTS.project.md
+dist-pages/

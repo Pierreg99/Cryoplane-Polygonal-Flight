@@ -14,4 +14,7 @@
 | Docs + stills on GitHub | Done |
 | Engine / gun audio | Done |
 | Control-surface / prop / sea motion | Done |
+| Immersion FX + frost HUD | Done |
+| Touch HUD overhaul | Done |
+| GitHub Pages (static base) | Done |
 | Campaign sorties | Not started |

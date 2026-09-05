@@ -145,7 +145,11 @@ function authPopupPlugin(): Plugin {
 // `0.0.0.0:8080` is the live-preview contract — don't change host/port.
 // The dev server starts once `src/router.tsx` and `src/routes/` exist — see
 // AGENTS.md § "First scaffold".
+const PAGES_BASE = "/Cryoplane-Polygonal-Flight/";
+const PAGES_BASEPATH = "/Cryoplane-Polygonal-Flight";
+
 export default defineConfig(({ command, isPreview }) => ({
+  base: PAGES_BASE,
   server: {
     host: "0.0.0.0",
     port: 8080,
@@ -166,16 +170,29 @@ export default defineConfig(({ command, isPreview }) => ({
     // PWA head + ?install=1 tutorial page; runs before Start/Nitro.
     grokPwaPlugin(),
     tailwindcss(),
-    tanstackStart(),
-    ...(command === "build" || isPreview
+    tanstackStart({
+      // Client-only shell for static GitHub Pages (no SSR host).
+      spa: {
+        enabled: true,
+        prerender: {
+          outputPath: "/index",
+          crawlLinks: false,
+          retryCount: 1,
+        },
+      },
+      router: { basepath: PAGES_BASEPATH },
+    }),
+    ...((command === "build" || isPreview) && process.env.SKIP_NITRO !== "1"
       ? [
-          nitro({
-            preset: "vercel",
-            // Auto-registers server/middleware/* (the PWA install page +
-            // manifest + head-tag middleware). Nitro v3 defaults serverDir to
-            // false, so removing this silently unwires /?install=1 on deploys.
-            serverDir: "./server",
-          }),
+          (() => {
+            const preset = process.env.NITRO_PRESET || "static";
+            const isStaticPages =
+              preset === "github-pages" || preset === "static" || preset === "gitlab-pages";
+            return nitro({
+              preset,
+              ...(isStaticPages ? {} : { serverDir: "./server" }),
+            });
+          })(),
         ]
       : []),
     viteReact(),

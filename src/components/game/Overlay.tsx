@@ -54,12 +54,43 @@ export function Overlay({
           : "pointer-events-none",
       )}
     >
+      {(phase === "play" || phase === "paused") && <ImmersionFX />}
       <Hud visible={phase === "play" || phase === "paused"} />
       {showMenu && <Menu onPlay={onPlay} />}
       {phase === "crashed" && <CrashScreen onRestart={onRestart} />}
       {phase === "play" && <Crosshair />}
       {phase === "play" && <Radar />}
     </div>
+  );
+}
+
+
+function ImmersionFX() {
+  const stallRef = useRef<HTMLDivElement>(null);
+  const scrapeRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let id = 0;
+    const tick = () => {
+      if (stallRef.current) {
+        stallRef.current.style.opacity = String(hud.stall > 0.35 ? Math.min(1, hud.stall) : 0);
+      }
+      if (scrapeRef.current) {
+        scrapeRef.current.style.opacity = String(Math.min(1, hud.scraping));
+      }
+      id = requestAnimationFrame(tick);
+    };
+    id = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(id);
+  }, []);
+
+  return (
+    <>
+      <div className="cryo-vignette" aria-hidden />
+      <div className="cryo-frost-scan" aria-hidden />
+      <div ref={stallRef} className="cryo-edge-stall" aria-hidden />
+      <div ref={scrapeRef} className="cryo-edge-scrape" aria-hidden />
+    </>
   );
 }
 
@@ -142,7 +173,7 @@ function Menu({ onPlay }: { onPlay: () => void }) {
   return (
     <div className="pointer-events-auto absolute inset-0 flex items-end justify-center overflow-y-auto bg-bg/55 sm:items-center">
       <div
-        className="m-3 mb-safe w-full max-w-2xl rounded-xl border border-border bg-surface p-4 shadow-lg sm:m-4 sm:p-6"
+        className="cryo-hangar-sheen m-3 mb-safe w-full max-w-2xl rounded-xl border border-border/70 bg-surface/95 p-4 shadow-lg backdrop-blur-md sm:m-4 sm:p-6"
         role="dialog"
         aria-labelledby="cryoplane-title"
       >
@@ -412,7 +443,7 @@ function Hud({ visible }: { visible: boolean }) {
   return (
     <div className={cn("absolute inset-0 p-3 pt-safe sm:p-4", !visible && "hidden")}>
       <div className="flex items-start justify-between gap-3">
-        <div className="pointer-events-none flex flex-wrap items-center gap-3 rounded-md border border-border bg-surface/90 px-3 py-1.5 font-mono text-sm">
+        <div className="cryo-hud-glass pointer-events-none flex flex-wrap items-center gap-3 rounded-md border px-3 py-1.5 font-mono text-sm text-fg/90">
           <Metric icon={<Mountain className="size-3.5" />} label="Alt">
             <span ref={altRef} className="tabular-nums">
               0
@@ -501,8 +532,8 @@ function Hud({ visible }: { visible: boolean }) {
       </div>
       <div className="pointer-events-none mt-2 flex items-center gap-2">
         <Shield className="size-3.5 text-subtle" />
-        <div className="h-1 w-28 overflow-hidden rounded-full bg-elevated">
-          <div ref={hullRef} className="h-full rounded-full bg-accent" style={{ width: "100%" }} />
+        <div className="h-1.5 w-28 overflow-hidden rounded-full bg-elevated/90">
+          <div ref={hullRef} className="cryo-hull-glow h-full rounded-full bg-accent" style={{ width: "100%" }} />
         </div>
       </div>
       {!pointerLocked && visible && (

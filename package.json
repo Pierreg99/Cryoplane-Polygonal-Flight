@@ -1,5 +1,5 @@
 {
-  "name": "app-builder-workspace",
+  "name": "cryoplane-polygonal-flight",
   "private": true,
   "sideEffects": false,
   "type": "module",
@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "node scripts/with-app-env.mjs vite dev --host 0.0.0.0 --port 8080",
-    "build": "node scripts/with-app-env.mjs vite build && npm run db:migrate",
+    "build": "node scripts/build-pages.mjs && npm run db:migrate",
     "db:migrate": "node scripts/migrate.mjs",
     "build:dev": "node scripts/with-app-env.mjs vite build --mode development",
     "preview": "node scripts/with-app-env.mjs vite preview",
@@ -16,7 +16,10 @@
     "check:auth": "node scripts/check-auth-invariant.mjs",
     "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/auth/gate-identity.test.ts",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "build:pages": "node scripts/build-pages.mjs",
+    "preview:pages": "SKIP_NITRO=1 node scripts/with-app-env.mjs vite preview",
+    "build:vercel": "NITRO_PRESET=vercel node scripts/with-app-env.mjs vite build && npm run db:migrate"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.4",
@@ -96,5 +99,16 @@
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.56.1",
     "vite": "^8.2.0"
+  },
+  "version": "0.7.0",
+  "description": "Low-poly polar flyer \u2014 hangar, energy flight, radar, combat",
+  "author": "Pierreg99 <pierre@cryopg.it>",
+  "homepage": "https://pierreg99.github.io/Cryoplane-Polygonal-Flight/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Pierreg99/Cryoplane-Polygonal-Flight.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Pierreg99/Cryoplane-Polygonal-Flight/issues"
   }
 }

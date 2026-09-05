@@ -42,7 +42,7 @@ export function Radar() {
         ref={canvasRef}
         width={SIZE}
         height={SIZE}
-        className="size-28 rounded-full border border-border bg-surface/90 sm:size-32"
+        className="cryo-radar-chrome size-28 rounded-full border border-border/60 bg-surface/80 sm:size-32"
         aria-label="Heading-up radar"
       />
       <p className="mt-1 text-center font-mono text-xs tracking-widest text-subtle uppercase">

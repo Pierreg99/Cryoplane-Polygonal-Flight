@@ -7,10 +7,10 @@ export default function FlightCanvas() {
   const playing = useGame((s) => s.phase === "play");
   return (
     <Canvas
-      camera={{ fov: 64, near: 0.15, far: 1900, position: [28, 72, 228] }}
+      camera={{ fov: 62, near: 0.15, far: 1900, position: [28, 72, 228] }}
       dpr={[1, 1.6]}
       style={{ pointerEvents: playing ? "auto" : "none" }}
-      gl={{ antialias: true, powerPreference: "high-performance", toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.18 }}
+      gl={{ antialias: true, powerPreference: "high-performance", toneMapping: THREE.ACESFilmicToneMapping, toneMappingExposure: 1.22 }}
       onCreated={({ gl }) => {
         gl.outputColorSpace = THREE.SRGBColorSpace;
         gl.toneMapping = THREE.ACESFilmicToneMapping;
