@@ -18,3 +18,4 @@
 | Touch HUD overhaul | Done |
 | GitHub Pages (static base) | Done |
 | Campaign sorties | Not started |
+| Ship-complete patch 0.7.1 | Done |

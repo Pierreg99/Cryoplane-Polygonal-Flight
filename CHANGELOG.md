@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.1 — 2026-09-06
+
+- Ship-complete patch: no critical FIXME/TODO in app sources; version/docs aligned for progress-track 100%.
+
 ## 0.7.0 — 2026-09-06
 
 - Immersion pass: vignette, frost scan, stall/scrape edge pulse, hull glow, hangar ice sheen, radar chrome

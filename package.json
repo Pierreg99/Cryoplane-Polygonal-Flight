@@ -100,7 +100,7 @@
     "typescript-eslint": "^8.56.1",
     "vite": "^8.2.0"
   },
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "Low-poly polar flyer \u2014 hangar, energy flight, radar, combat",
   "author": "Pierreg99 <pierre@cryopg.it>",
   "homepage": "https://pierreg99.github.io/Cryoplane-Polygonal-Flight/",
