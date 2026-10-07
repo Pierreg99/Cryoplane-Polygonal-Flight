@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="./assets/readme-banner.svg" alt="Cryoplane-Polygonal-Flight" width="100%">
+
 # Cryoplane
 
 <p><strong>Cryoplane: Low-Poly-Flugspiel über einem polaren Kontinent.</strong></p>
@@ -16,10 +18,38 @@
 <p><a href="#schnellstart">Schnellstart</a> · <a href="#projektstruktur">Projektstruktur</a> · <a href="#english-summary">English</a></p>
 </div>
 
+<table>
+<tr>
+<td width="58%" valign="top">
+
+### Bestand
+
+Cryoplane— low-poly polar continent flyer
+
+Der Default-Branch `main` ist die Fläche, die zählt. Was nicht in diesem Baum liegt, ist kein Feature dieses Repos.
+
+</td>
+<td width="42%" valign="top">
+
+### Fakten
+
+| Feld | Wert |
+| --- | --- |
+| Owner | Pierreg99 |
+| Branch | `main` |
+| Sichtbarkeit | öffentlich |
+| Sprache | TypeScript |
+| Archiv | nein |
+
+</td>
+</tr>
+</table>
+
 ---
 
 ## Inhaltsverzeichnis
 
+- [Bestand und Fakten](#bestand)
 - [Überblick](#überblick)
 - [Features](#features)
 - [Schnellstart](#schnellstart)
@@ -36,7 +66,7 @@ Cryoplane: Low-Poly-Flugspiel über einem polaren Kontinent.
 | Merkmal | Wert |
 | --- | --- |
 | Sprachen | TypeScript (66%), JavaScript (31%), CSS (2%), HTML (1%) |
-| Dateien im Repository | 115 |
+| Dateien im Repository | 116 |
 | Einstiegspunkte | `src/router.tsx` |
 | Version (`package.json`) | 0.7.1 |
 | CI-Workflows | 1 |
@@ -63,7 +93,7 @@ Cryoplane: Low-Poly-Flugspiel über einem polaren Kontinent.
 - Automatisierung über GitHub Actions: `pages.yml`
 - Veröffentlichung über GitHub Pages
 - 9 Testdateien im Repository
-- 5 SVG-Grafiken
+- 6 SVG-Grafiken
 
 ## Schnellstart
 
@@ -123,7 +153,8 @@ flowchart LR
     R --> D2["public/<br/>11 Dateien"]
     R --> D3["docs/<br/>3 Dateien"]
     R --> D4["server/<br/>2 Dateien"]
-    R --> D5["migrations/<br/>1 Datei"]
+    R --> D5["assets/<br/>1 Datei"]
+    R --> D6["migrations/<br/>1 Datei"]
     E{{"Einstieg: src/router.tsx"}}
     E -.-> R
     CI[["GitHub Actions<br/>1 Workflows"]] -.-> R
@@ -135,6 +166,8 @@ flowchart LR
 Cryoplane-Polygonal-Flight/
 ├── .github/  (1 Datei)
 │   └── workflows/
+├── assets/  (1 Datei)
+│   └── readme-banner.svg
 ├── docs/  (3 Dateien)
 │   └── images/
 ├── migrations/  (1 Datei)
